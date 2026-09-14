@@ -1,4 +1,4 @@
-"""Modal.com Serverless Pipeline for yt2score.
+﻿"""Modal.com Serverless Pipeline for yt2score.
 Provides distributed chunk analysis, lineup OCR, and WebSocket / Webhook entry points.
 Fully cloud-native, zero local dependencies.
 """
@@ -23,7 +23,7 @@ image = (
 app = modal.App(name="yt2score-service", image=image)
 
 
-@app.function(timeout=600, secrets=[modal.Secret.from_name("gemini-secret", required=False)])
+@app.function(timeout=600)
 def scan_lineup_card(youtube_url: str) -> Dict[str, Any]:
     """
     雲端任務：以 360p 取樣影片前 8 分鐘，擷取攻守字卡並使用 Gemini 進行結構化 OCR
@@ -32,17 +32,14 @@ def scan_lineup_card(youtube_url: str) -> Dict[str, Any]:
     import cv2
     from worker.lineup_detector import LineupDetector
 
-    # 1. 透過 yt-dlp 取得 360p 直播視訊真實串流網址
     cmd = ["yt-dlp", "-f", "best[height<=360]/worst", "-g", youtube_url]
     res = subprocess.run(cmd, capture_output=True, text=True, check=True)
     stream_url = res.stdout.strip()
 
-    # 2. 開啟串流取樣
     cap = cv2.VideoCapture(stream_url)
     fps = cap.get(cv2.CAP_PROP_FPS) or 30.0
     detector = LineupDetector()
 
-    # 每 5 秒抽 1 幀，最多看前 8 分鐘 (480 秒)
     step_frames = int(fps * 5)
     max_frames = int(fps * 480)
     current_frame = 0
@@ -96,7 +93,7 @@ def process_video_chunk(chunk_info: Dict[str, Any]) -> List[Dict[str, Any]]:
 
     events_detected = []
     current_f = start_frame
-    sample_interval = int(fps * 2.5) # 每 2.5 秒取樣一次
+    sample_interval = int(fps * 2.5)
 
     while current_f < end_frame and cap.isOpened():
         cap.set(cv2.CAP_PROP_POS_FRAMES, current_f)
