@@ -55,7 +55,7 @@ export default function HomePage() {
           <div className="relative flex items-center">
             <input
               type="text"
-              placeholder="請貼上 YouTube 比賽直播網址 (例: https://www.youtube.com/watch?v=...)"
+              placeholder="請貼上 YouTube 比賽直播網址 (例: https://www.youtube.com/watch?v=d9IbTyrrYMc)"
               value={youtubeUrl}
               onChange={(e) => setYoutubeUrl(e.target.value)}
               className="w-full bg-slate-900 border-2 border-slate-800 focus:border-indigo-500 rounded-2xl px-5 py-4 text-white placeholder-slate-500 text-sm md:text-base focus:outline-none shadow-2xl transition-all pr-36"
