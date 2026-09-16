@@ -12,7 +12,8 @@ import {
   Sparkles,
   PlusCircle,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  Loader2,
 } from "lucide-react";
 
 export interface PlayEvent {
@@ -42,6 +43,8 @@ interface InningPlayTimelineProps {
   innings: InningCheckpoint[];
   onSelectTimestamp: (sec: number) => void;
   onInningsChange?: (updatedInnings: InningCheckpoint[]) => void;
+  onReanalyzeInning?: (innIdx: number, num: number, half: "TOP" | "BOTTOM") => Promise<void>;
+  onAnalyzeNextInning?: () => Promise<void>;
 }
 
 const EVENT_TYPE_OPTIONS = [
@@ -65,7 +68,32 @@ export const InningPlayTimeline: React.FC<InningPlayTimelineProps> = ({
   innings,
   onSelectTimestamp,
   onInningsChange,
+  onReanalyzeInning,
+  onAnalyzeNextInning,
 }) => {
+  const [reanalyzingIndex, setReanalyzingIndex] = useState<number | null>(null);
+  const [analyzingNext, setAnalyzingNext] = useState<boolean>(false);
+
+  const handleTriggerReanalyze = async (innIdx: number, num: number, half: "TOP" | "BOTTOM") => {
+    if (!onReanalyzeInning) return;
+    setReanalyzingIndex(innIdx);
+    try {
+      await onReanalyzeInning(innIdx, num, half);
+    } finally {
+      setReanalyzingIndex(null);
+    }
+  };
+
+  const handleTriggerAnalyzeNext = async () => {
+    if (!onAnalyzeNextInning) return;
+    setAnalyzingNext(true);
+    try {
+      await onAnalyzeNextInning();
+    } finally {
+      setAnalyzingNext(false);
+    }
+  };
+
   const [editingPlayId, setEditingPlayId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<{
     time_str: string;
@@ -283,8 +311,27 @@ export const InningPlayTimeline: React.FC<InningPlayTimelineProps> = ({
                 </span>
               </div>
               <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  disabled={reanalyzingIndex === innIdx}
+                  onClick={() => handleTriggerReanalyze(innIdx, inn.inning_num, inn.inning_half)}
+                  title="重新使用視覺 AI 模型掃描此局畫面與記分板"
+                  className="text-xs bg-indigo-950/80 hover:bg-indigo-600 text-indigo-200 border border-indigo-700/80 px-2.5 py-1 rounded-lg flex items-center gap-1.5 transition-all shadow-sm disabled:opacity-50"
+                >
+                  {reanalyzingIndex === innIdx ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin text-indigo-400" />
+                      影像 AI 重新掃描中...
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
+                      重新影像分析此局
+                    </>
+                  )}
+                </button>
                 <span className="text-xs text-indigo-400 font-mono bg-indigo-950/60 border border-indigo-800/80 px-3 py-1 rounded-lg">
-                  本半局得分：{inn.inning_half === "TOP" ? inn.guest_runs : inn.home_runs} 分
+                  本局得分：{inn.inning_half === "TOP" ? inn.guest_runs : inn.home_runs} 分
                 </span>
               </div>
             </div>
@@ -617,15 +664,34 @@ export const InningPlayTimeline: React.FC<InningPlayTimelineProps> = ({
         );
       })}
 
-      {/* 接續新增半局按鈕 */}
-      <div className="pt-2 flex justify-center">
+      {/* 接續新增半局按鈕：以影像 AI 視覺分析為核心 */}
+      <div className="pt-4 flex flex-col sm:flex-row items-center justify-center gap-3">
+        <button
+          type="button"
+          disabled={analyzingNext}
+          onClick={handleTriggerAnalyzeNext}
+          className="px-6 py-3 rounded-2xl bg-indigo-600 hover:bg-indigo-500 border border-indigo-400 text-white font-bold text-sm flex items-center gap-2 shadow-xl shadow-indigo-600/40 transition-all disabled:opacity-60 cursor-pointer"
+        >
+          {analyzingNext ? (
+            <>
+              <Loader2 className="w-4 h-4 animate-spin text-white" />
+              雲端視覺 AI 正在掃描下一半局影格...
+            </>
+          ) : (
+            <>
+              <Sparkles className="w-4 h-4 fill-white" />
+              🎥 影像 AI 自動分析並接續下一半局
+            </>
+          )}
+        </button>
+
         <button
           type="button"
           onClick={handleAddNewInning}
-          className="px-6 py-3 rounded-2xl bg-slate-900 hover:bg-slate-800 border border-indigo-800/80 hover:border-indigo-500 text-indigo-300 hover:text-white font-semibold text-sm flex items-center gap-2 shadow-lg shadow-indigo-950/50 transition-all"
+          className="px-4 py-3 rounded-2xl bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-400 hover:text-slate-200 text-xs flex items-center gap-1.5 transition-all cursor-pointer"
         >
-          <PlusCircle className="w-4 h-4 text-indigo-400" />
-          接續新增下一半局 (支援全場連續記分)
+          <PlusCircle className="w-3.5 h-3.5" />
+          手動建立空白半局
         </button>
       </div>
     </div>

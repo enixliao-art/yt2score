@@ -58,6 +58,70 @@ export default function HomePage() {
     }));
   };
 
+  // 重新使用視覺 AI 分析特定半局
+  const handleReanalyzeInning = async (innIdx: number, inningNum: number, inningHalf: "TOP" | "BOTTOM") => {
+    try {
+      const res = await fetch("https://enixliao-art--yt2score-service-fastapi-app.modal.run/api/analyze-inning", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          youtube_url: youtubeUrl.trim(),
+          inning_num: inningNum,
+          inning_half: inningHalf,
+        }),
+      });
+      const data = await res.json();
+      if (data.status === "success" && data.inning) {
+        const nextInnings = [...analyzedData.innings];
+        nextInnings[innIdx] = data.inning;
+        handleInningsChange(nextInnings);
+      } else {
+        alert("視覺 AI 分析失敗：" + (data.message || "未知錯誤"));
+      }
+    } catch (err: any) {
+      alert("連線雲端視覺 AI 引擎失敗：" + err.message);
+    }
+  };
+
+  // 影像 AI 分析並接續下一半局
+  const handleAnalyzeNextInning = async () => {
+    if (!analyzedData || !analyzedData.innings) return;
+    const lastInning = analyzedData.innings[analyzedData.innings.length - 1];
+    let nextNum = 1;
+    let nextHalf: "TOP" | "BOTTOM" = "TOP";
+
+    if (lastInning) {
+      if (lastInning.inning_half === "TOP") {
+        nextNum = lastInning.inning_num;
+        nextHalf = "BOTTOM";
+      } else {
+        nextNum = lastInning.inning_num + 1;
+        nextHalf = "TOP";
+      }
+    }
+
+    try {
+      const res = await fetch("https://enixliao-art--yt2score-service-fastapi-app.modal.run/api/analyze-inning", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          youtube_url: youtubeUrl.trim(),
+          inning_num: nextNum,
+          inning_half: nextHalf,
+        }),
+      });
+      const data = await res.json();
+      if (data.status === "success" && data.inning) {
+        const nextInnings = [...analyzedData.innings, data.inning];
+        handleInningsChange(nextInnings);
+      } else {
+        alert("視覺 AI 接續分析失敗：" + (data.message || "未知錯誤"));
+      }
+    } catch (err: any) {
+      alert("連線雲端視覺 AI 引擎失敗：" + err.message);
+    }
+  };
+
   const handleExportJSON = () => {
     if (!analyzedData) return;
     const blob = new Blob([JSON.stringify(analyzedData, null, 2)], {
@@ -162,11 +226,13 @@ export default function HomePage() {
                 </div>
               </div>
 
-              {/* 逐局時間軸 (支援即時 Play 編輯與半局接續) */}
+              {/* 逐局時間軸 (支援影像 AI 重新分析此局、接續分析下一半局、即時 Play 編輯) */}
               <InningPlayTimeline
                 innings={analyzedData.innings}
                 onSelectTimestamp={(sec) => setSelectedTimestamp(sec)}
                 onInningsChange={handleInningsChange}
+                onReanalyzeInning={handleReanalyzeInning}
+                onAnalyzeNextInning={handleAnalyzeNextInning}
               />
             </div>
 
