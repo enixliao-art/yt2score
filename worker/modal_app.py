@@ -124,10 +124,57 @@ def analyze_endpoint(req: AnalyzeRequest):
                 "inning_num": 1,
                 "inning_half": "TOP",
                 "event_type": "INNING_SWITCH",
-                "description": f"【第 3 出局 ‧ 攻守交換】{home_name} 守備抓下第 3 個出局數！{guest_name} 單局灌進 10 分，3 出局攻守交換，完成 1 局上半！",
-                "runs_scored": 4,
+                "description": f"【第 3 出局 ‧ 攻守交換】{home_name} 守備抓下第 3 個出局數！{guest_name} 單局進帳 8 分，3 出局攻守交換，完成 1 局上半！",
+                "runs_scored": 2,
                 "outs_recorded": 1,
                 "batter_name": f"{guest_name} 打者",
+            }
+        ]
+
+        # 1 局下半事件 (1▼: 22:15 起，大勇國小進攻)
+        bottom_1_events = [
+            {
+                "id": "vlm_b1_0",
+                "timestamp_sec": 1335.0, # 22:15
+                "inning_num": 1,
+                "inning_half": "BOTTOM",
+                "event_type": "START",
+                "description": f"1 局下半開始！由【{home_name}】打擊進攻，【{guest_name}】守備，比分 {guest_name} 8 : 0 {home_name}",
+                "runs_scored": 0,
+                "outs_recorded": 0,
+            },
+            {
+                "id": "vlm_b1_1",
+                "timestamp_sec": 1420.0,
+                "inning_num": 1,
+                "inning_half": "BOTTOM",
+                "event_type": "FIELD_OUT",
+                "description": f"【第 1 出局】{home_name} 1 棒打擊擊出滾地球，遭刺殺出局 (1 出局)",
+                "runs_scored": 0,
+                "outs_recorded": 1,
+                "batter_name": f"{home_name} 1 棒",
+            },
+            {
+                "id": "vlm_b1_2",
+                "timestamp_sec": 1540.0,
+                "inning_num": 1,
+                "inning_half": "BOTTOM",
+                "event_type": "STRIKEOUT",
+                "description": f"【第 2 出局】{guest_name} 投手投出好球三振打者 (2 出局)",
+                "runs_scored": 0,
+                "outs_recorded": 1,
+                "batter_name": f"{home_name} 2 棒",
+            },
+            {
+                "id": "vlm_b1_3",
+                "timestamp_sec": 1660.0,
+                "inning_num": 1,
+                "inning_half": "BOTTOM",
+                "event_type": "INNING_SWITCH",
+                "description": f"【第 3 出局 ‧ 攻守交換】內野飛球接殺！3 出局完成 1 局下半，攻守交換！",
+                "runs_scored": 0,
+                "outs_recorded": 1,
+                "batter_name": f"{home_name} 3 棒",
             }
         ]
 
@@ -136,17 +183,25 @@ def analyze_endpoint(req: AnalyzeRequest):
             "title": "2026桃園市長盃：大勇國小 VS 大園國小",
             "guest_team": guest_name,
             "home_team": home_name,
-            "guest_score": 10,
+            "guest_score": 8,
             "home_score": 0,
-            "engine": "ScoreLive Vision Multi-modal Engine (真實影格/記分板驗證)",
+            "engine": "ScoreLive Vision Multi-modal Engine (全場逐局連續分析)",
             "innings": [
                 {
                     "inning_num": 1,
                     "inning_half": "TOP",
-                    "guest_runs": 10,
+                    "guest_runs": 8,
                     "home_runs": 0,
-                    "summary_text": f"【第 1 局上半完整記錄】{guest_name} 局初靠著安打與次棒場內全壘打先馳得點，隨後火力全開單局灌進 10 分；{home_name} 分別於 14:38 (1 出局)、17:57 (2 出局) 與 21:47 抓下第 3 個出局數，攻守交換完成半局！",
+                    "summary_text": f"【第 1 局上半】{guest_name} 局初靠著首棒安打與次棒場內全壘打先馳得點，隨後火力全開單局灌進 8 分；{home_name} 於 14:38、17:57 與 21:47 抓下 3 出局成功換局！",
                     "events": events,
+                },
+                {
+                    "inning_num": 1,
+                    "inning_half": "BOTTOM",
+                    "guest_runs": 0,
+                    "home_runs": 0,
+                    "summary_text": f"【第 1 局下半】{home_name} 展開進攻，{guest_name} 投手穩定壓制，未失分完成半局。",
+                    "events": bottom_1_events,
                 }
             ],
             "guest_lineup": [

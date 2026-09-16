@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import React, { useState } from "react";
 import { Play, Sparkles, Loader2, Layers, CheckCircle2 } from "lucide-react";
@@ -37,6 +37,40 @@ export default function HomePage() {
     }
   };
 
+  const handleInningsChange = (updatedInnings: any[]) => {
+    // 動態重新統計全場總分
+    let totalGuest = 0;
+    let totalHome = 0;
+
+    updatedInnings.forEach((inn) => {
+      if (inn.inning_half === "TOP") {
+        totalGuest += inn.guest_runs || 0;
+      } else {
+        totalHome += inn.home_runs || 0;
+      }
+    });
+
+    setAnalyzedData((prev: any) => ({
+      ...prev,
+      guest_score: totalGuest,
+      home_score: totalHome,
+      innings: updatedInnings,
+    }));
+  };
+
+  const handleExportJSON = () => {
+    if (!analyzedData) return;
+    const blob = new Blob([JSON.stringify(analyzedData, null, 2)], {
+      type: "application/json",
+    });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `baseball_score_${Date.now()}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col justify-between">
       {/* 頂部 Header */}
@@ -49,7 +83,7 @@ export default function HomePage() {
             <span className="font-bold text-lg tracking-tight text-white">ScoreLive AI 棒球直播極速記分雲</span>
           </div>
           <span className="text-xs text-emerald-400 border border-emerald-700/60 bg-emerald-950/60 px-3 py-1 rounded-full">
-            ● 全場逐局自動解析已就位 (Modal Engine)
+            ● 逐 Play 在線即時編輯 ‧ 全場接續分析
           </span>
         </div>
       </header>
@@ -59,13 +93,13 @@ export default function HomePage() {
         <div className="max-w-3xl mx-auto text-center space-y-4">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-950/60 border border-indigo-800 text-indigo-300 text-xs font-semibold">
             <Sparkles className="w-3.5 h-3.5" />
-            一鍵全場分析 ‧ 逐局攻守轉換 ‧ 場內全壘打識別 ‧ YouTube 秒級連動
+            一鍵全場分析 ‧ 逐 Play 即時在線微調 ‧ 接續每個半局 ‧ YouTube 秒級連動
           </div>
           <h1 className="text-3xl md:text-4xl font-black text-white">
             YouTube 棒球直播全場極速自動記分
           </h1>
           <p className="text-sm text-slate-400">
-            支援 90 分鐘全場賽事一次跑完，精確推導跨局得分、打席出局數與比分走勢。
+            支援全場賽事逐局分析與 Play-by-Play 即時編輯，絕不因單一局部誤判影響整體記分，精確追蹤比分走勢。
           </p>
 
           <form onSubmit={handleStartAnalysis} className="flex gap-2 pt-2">
@@ -106,19 +140,33 @@ export default function HomePage() {
                   <span className="text-xs font-semibold text-indigo-400 uppercase tracking-wider">
                     {analyzedData.title}
                   </span>
-                  <h2 className="text-2xl font-black text-white mt-1">
-                    {analyzedData.guest_team} {analyzedData.guest_score} : {analyzedData.home_score} {analyzedData.home_team}
+                  <h2 className="text-2xl font-black text-white mt-1 flex items-center gap-3">
+                    <span>{analyzedData.guest_team}</span>
+                    <span className="font-mono text-emerald-400 bg-slate-950 px-3 py-0.5 rounded-lg border border-slate-800">
+                      {analyzedData.guest_score} : {analyzedData.home_score}
+                    </span>
+                    <span>{analyzedData.home_team}</span>
                   </h2>
                 </div>
-                <span className="text-xs text-slate-400 bg-slate-800 px-3 py-1.5 rounded-lg border border-slate-700">
-                  共解析 {analyzedData.innings?.length || 0} 個半局
-                </span>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={handleExportJSON}
+                    className="text-xs bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 px-3 py-1.5 rounded-lg transition-colors"
+                  >
+                    💾 匯出 JSON
+                  </button>
+                  <span className="text-xs text-slate-400 bg-slate-800/80 px-3 py-1.5 rounded-lg border border-slate-700">
+                    共 {analyzedData.innings?.length || 0} 個半局
+                  </span>
+                </div>
               </div>
 
-              {/* 逐局時間軸 */}
+              {/* 逐局時間軸 (支援即時 Play 編輯與半局接續) */}
               <InningPlayTimeline
                 innings={analyzedData.innings}
                 onSelectTimestamp={(sec) => setSelectedTimestamp(sec)}
+                onInningsChange={handleInningsChange}
               />
             </div>
 
@@ -129,9 +177,11 @@ export default function HomePage() {
                   youtubeUrl={youtubeUrl}
                   seekTimestamp={selectedTimestamp}
                 />
-                <div className="mt-3 p-4 bg-slate-900/80 rounded-xl border border-slate-800 text-xs text-slate-400 space-y-1">
-                  <p className="font-semibold text-slate-300">💡 實況驗證小提示：</p>
-                  <p>點擊左側任一時間點（如 <strong className="text-indigo-400">[06:17]</strong> 場內全壘打、<strong className="text-indigo-400">[18:50]</strong> 扳平二壘安打），右側影片自動精確跳轉播放！</p>
+                <div className="mt-3 p-4 bg-slate-900/80 rounded-xl border border-slate-800 text-xs text-slate-400 space-y-2">
+                  <p className="font-semibold text-slate-300">💡 互動記分員操作提示：</p>
+                  <p>1. 點擊任一 Play 的 <strong className="text-indigo-400">[時間標籤]</strong>，右側 YouTube 自動精確跳轉到該秒畫面驗證。</p>
+                  <p>2. 點擊任一 Play 右側的 <strong className="text-indigo-400">✏️ (編輯)</strong>，可即時修改秒數、事件類型、文字描述、得分與出局數，總比分即時自動重算！</p>
+                  <p>3. 支援 <strong className="text-emerald-400">+ 新增 Play</strong> 與 <strong className="text-indigo-400">+ 接續新增下一半局</strong>，確保全場比賽順暢記錄直到完賽！</p>
                 </div>
               </div>
             </div>
