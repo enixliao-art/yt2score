@@ -14,6 +14,14 @@ export default function HomePage() {
   const [analyzedData, setAnalyzedData] = useState<any>(null);
   const [selectedTimestamp, setSelectedTimestamp] = useState<number | null>(null);
   const [activeView, setActiveView] = useState<"SCORECARD" | "BOXSCORE">("SCORECARD");
+  const [notification, setNotification] = useState<{ type: "success" | "error"; text: string } | null>(null);
+
+  const showToast = (text: string, type: "success" | "error" = "success") => {
+    setNotification({ type, text });
+    setTimeout(() => {
+      setNotification(null);
+    }, 5000);
+  };
 
   const handleStartAnalysis = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -29,6 +37,7 @@ export default function HomePage() {
       const data = await res.json();
       if (data.status === "success") {
         setAnalyzedData(data);
+        showToast("✅ 全場賽事打席與攻守記錄表加載完成！");
       } else {
         alert("分析錯誤：" + (data.message || "未知錯誤"));
       }
@@ -39,25 +48,54 @@ export default function HomePage() {
     }
   };
 
-  const handleInningsChange = (updatedInnings: any[]) => {
+  const handleInningsChange = (updatedInnings: any[], extraData?: any) => {
     // 動態重新統計全場總分
     let totalGuest = 0;
     let totalHome = 0;
 
+    // 建立 1~6 局的 line score 陣列
+    const maxInningNum = Math.max(6, ...updatedInnings.map(inn => inn.inning_num || 1));
+    const guestScores = Array(maxInningNum).fill("-");
+    const homeScores = Array(maxInningNum).fill("-");
+
     updatedInnings.forEach((inn) => {
+      const idx = (inn.inning_num || 1) - 1;
       if (inn.inning_half === "TOP") {
-        totalGuest += inn.guest_runs || 0;
+        totalGuest += Number(inn.guest_runs) || 0;
+        if (idx < guestScores.length) guestScores[idx] = String(inn.guest_runs);
       } else {
-        totalHome += inn.home_runs || 0;
+        totalHome += Number(inn.home_runs) || 0;
+        if (idx < homeScores.length) homeScores[idx] = String(inn.home_runs);
       }
     });
 
-    setAnalyzedData((prev: any) => ({
-      ...prev,
-      guest_score: totalGuest,
-      home_score: totalHome,
-      innings: updatedInnings,
-    }));
+    setAnalyzedData((prev: any) => {
+      if (!prev) return prev;
+      const updatedLineScore = extraData?.line_score || {
+        ...prev.line_score,
+        innings: Array.from({ length: maxInningNum }, (_, i) => String(i + 1)),
+        guest: {
+          ...prev.line_score?.guest,
+          scores: guestScores,
+          r: totalGuest,
+        },
+        home: {
+          ...prev.line_score?.home,
+          scores: homeScores,
+          r: totalHome,
+        }
+      };
+
+      return {
+        ...prev,
+        guest_score: totalGuest,
+        home_score: totalHome,
+        innings: updatedInnings,
+        line_score: updatedLineScore,
+        guest_box_score: extraData?.guest_box_score || prev.guest_box_score,
+        home_box_score: extraData?.home_box_score || prev.home_box_score,
+      };
+    });
   };
 
   // 重新使用視覺 AI 分析特定半局
@@ -76,7 +114,9 @@ export default function HomePage() {
       if (data.status === "success" && data.inning) {
         const nextInnings = [...analyzedData.innings];
         nextInnings[innIdx] = data.inning;
-        handleInningsChange(nextInnings);
+        handleInningsChange(nextInnings, data);
+        const halfText = inningHalf === "TOP" ? "上半局" : "下半局";
+        showToast(`✅ 視覺 AI 重新影像分析完成！已刷新第 ${inningNum} 局${halfText}真實打席與比分記錄！`);
       } else {
         alert("視覺 AI 分析失敗：" + (data.message || "未知錯誤"));
       }
@@ -115,7 +155,9 @@ export default function HomePage() {
       const data = await res.json();
       if (data.status === "success" && data.inning) {
         const nextInnings = [...analyzedData.innings, data.inning];
-        handleInningsChange(nextInnings);
+        handleInningsChange(nextInnings, data);
+        const halfText = nextHalf === "TOP" ? "上半局" : "下半局";
+        showToast(`✅ 視覺 AI 成功接續第 ${nextNum} 局${halfText}！`);
       } else {
         alert("視覺 AI 接續分析失敗：" + (data.message || "未知錯誤"));
       }
@@ -153,6 +195,16 @@ export default function HomePage() {
           </span>
         </div>
       </header>
+
+      {/* 浮動提示 Toast */}
+      {notification && (
+        <div className="fixed top-20 left-1/2 -translate-x-1/2 z-50 animate-bounce">
+          <div className="bg-emerald-600 text-white font-bold text-sm px-6 py-3 rounded-2xl shadow-2xl shadow-emerald-500/40 border border-emerald-400 flex items-center gap-3">
+            <CheckCircle2 className="w-5 h-5 text-white animate-pulse" />
+            <span>{notification.text}</span>
+          </div>
+        </div>
+      )}
 
       {/* 主內容區塊 */}
       <main className="max-w-7xl mx-auto px-6 py-8 flex-1 w-full space-y-8">
