@@ -14,7 +14,20 @@ import {
   ChevronDown,
   ChevronUp,
   Loader2,
+  Camera,
+  Mic,
+  Eye,
+  EyeOff,
+  FileText,
 } from "lucide-react";
+
+export interface PlayEvidence {
+  has_screenshot?: boolean;
+  screenshot?: string; // data:image/jpeg;base64,...
+  has_audio?: boolean;
+  audio_transcript?: string; // 主播播報語音原文
+  vlm_reasoning?: string; // 多模態視覺分析推導
+}
 
 export interface PlayEvent {
   id: string;
@@ -33,6 +46,7 @@ export interface PlayEvent {
   batter_pos?: string;
   batter_num?: string;
   flag?: string;
+  evidence?: PlayEvidence;
 }
 
 export interface InningCheckpoint {
@@ -78,6 +92,19 @@ export const InningPlayTimeline: React.FC<InningPlayTimelineProps> = ({
 }) => {
   const [reanalyzingIndex, setReanalyzingIndex] = useState<number | null>(null);
   const [analyzingNext, setAnalyzingNext] = useState<boolean>(false);
+  const [openedEvidenceIds, setOpenedEvidenceIds] = useState<Set<string>>(new Set());
+
+  const toggleEvidence = (playId: string) => {
+    setOpenedEvidenceIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(playId)) {
+        next.delete(playId);
+      } else {
+        next.add(playId);
+      }
+      return next;
+    });
+  };
 
   const handleTriggerReanalyze = async (innIdx: number, num: number, half: "TOP" | "BOTTOM") => {
     if (!onReanalyzeInning) return;
@@ -475,86 +502,164 @@ export const InningPlayTimeline: React.FC<InningPlayTimelineProps> = ({
                 return (
                   <div
                     key={ev.id}
-                    className="group flex items-center justify-between p-2.5 rounded-xl bg-slate-950/70 hover:bg-indigo-950/40 border border-slate-800/90 hover:border-indigo-500/50 transition-all"
+                    className="group rounded-xl bg-slate-950/70 hover:bg-indigo-950/40 border border-slate-800/90 hover:border-indigo-500/50 transition-all p-2.5 space-y-2"
                   >
-                    {/* 左側：秒數跳轉、棒次徽章、打席結果與描述 */}
-                    <div className="flex items-center gap-2 flex-1 min-w-0 pr-2">
-                      <button
-                        type="button"
-                        onClick={() => onSelectTimestamp(ev.timestamp_sec)}
-                        title="點擊跳轉 YouTube 播放此畫面"
-                        className="text-indigo-400 hover:text-white flex items-center gap-1.5 font-mono text-xs bg-indigo-950/80 hover:bg-indigo-600 border border-indigo-800/80 px-2.5 py-1 rounded-lg transition-colors shrink-0"
-                      >
-                        <PlayCircle className="w-3.5 h-3.5" />
-                        {timeLabel}
-                      </button>
-
-                      {ev.order_label && (
-                        <span className="px-2 py-0.5 rounded-md text-[11px] font-bold bg-slate-800 text-slate-300 border border-slate-700 shrink-0">
-                          {ev.order_label}
-                        </span>
-                      )}
-
-                      {ev.result && (
-                        <span
-                          className={`px-2 py-0.5 rounded-md text-[11px] font-bold border shrink-0 ${
-                            ev.event_type === "HOME_RUN"
-                              ? "bg-rose-950/80 text-rose-300 border-rose-700"
-                              : ev.event_type === "SINGLE" ||
-                                ev.event_type === "DOUBLE" ||
-                                ev.event_type === "TRIPLE"
-                              ? "bg-emerald-950/80 text-emerald-300 border-emerald-700"
-                              : ev.event_type === "WALK"
-                              ? "bg-sky-950/80 text-sky-300 border-sky-700"
-                              : "bg-slate-800 text-slate-400 border-slate-700"
-                          }`}
+                    <div className="flex items-center justify-between">
+                      {/* 左側：秒數跳轉、棒次徽章、打席結果與描述 */}
+                      <div className="flex items-center gap-2 flex-1 min-w-0 pr-2">
+                        <button
+                          type="button"
+                          onClick={() => onSelectTimestamp(ev.timestamp_sec)}
+                          title="點擊跳轉 YouTube 播放此畫面"
+                          className="text-indigo-400 hover:text-white flex items-center gap-1.5 font-mono text-xs bg-indigo-950/80 hover:bg-indigo-600 border border-indigo-800/80 px-2.5 py-1 rounded-lg transition-colors shrink-0"
                         >
-                          {ev.result}
-                        </span>
-                      )}
+                          <PlayCircle className="w-3.5 h-3.5" />
+                          {timeLabel}
+                        </button>
 
-                      <span
-                        onClick={() => onSelectTimestamp(ev.timestamp_sec)}
-                        className="text-slate-200 text-sm font-medium truncate cursor-pointer hover:text-indigo-300"
-                        title={ev.description}
-                      >
-                        {ev.description}
-                      </span>
+                        {ev.order_label && (
+                          <span className="px-2 py-0.5 rounded-md text-[11px] font-bold bg-slate-800 text-slate-300 border border-slate-700 shrink-0">
+                            {ev.order_label}
+                          </span>
+                        )}
+
+                        {ev.result && (
+                          <span
+                            className={`px-2 py-0.5 rounded-md text-[11px] font-bold border shrink-0 ${
+                              ev.event_type === "HOME_RUN"
+                                ? "bg-rose-950/80 text-rose-300 border-rose-700"
+                                : ev.event_type === "SINGLE" ||
+                                  ev.event_type === "DOUBLE" ||
+                                  ev.event_type === "TRIPLE"
+                                ? "bg-emerald-950/80 text-emerald-300 border-emerald-700"
+                                : ev.event_type === "WALK"
+                                ? "bg-sky-950/80 text-sky-300 border-sky-700"
+                                : "bg-slate-800 text-slate-400 border-slate-700"
+                            }`}
+                          >
+                            {ev.result}
+                          </span>
+                        )}
+
+                        <span
+                          onClick={() => onSelectTimestamp(ev.timestamp_sec)}
+                          className="text-slate-200 text-sm font-medium truncate cursor-pointer hover:text-indigo-300"
+                          title={ev.description}
+                        >
+                          {ev.description}
+                        </span>
+                      </div>
+
+                      {/* 右側：標籤與操作按鈕 */}
+                      <div className="flex items-center gap-2 shrink-0">
+                        {ev.runs_scored > 0 && (
+                          <span className="text-xs font-bold text-emerald-400 bg-emerald-950/60 px-2 py-0.5 rounded border border-emerald-800">
+                            +{ev.runs_scored} 分
+                          </span>
+                        )}
+                        {ev.outs_recorded > 0 && (
+                          <span className="text-xs font-bold text-rose-400 bg-rose-950/60 px-2 py-0.5 rounded border border-rose-800">
+                            +{ev.outs_recorded} 出局
+                          </span>
+                        )}
+
+                        {/* 查看 AI 多模態佐證按鈕 */}
+                        {ev.evidence && (
+                          <button
+                            type="button"
+                            onClick={() => toggleEvidence(ev.id)}
+                            title="展開/收起真實影格截圖與主播語音分析"
+                            className={`px-2.5 py-1 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all border ${
+                              openedEvidenceIds.has(ev.id)
+                                ? "bg-indigo-600 text-white border-indigo-500 shadow-md shadow-indigo-600/30"
+                                : "bg-slate-900 hover:bg-slate-800 text-indigo-400 border-slate-700"
+                            }`}
+                          >
+                            <Camera className="w-3.5 h-3.5" />
+                            <span>AI 佐證</span>
+                          </button>
+                        )}
+
+                        {/* 編輯按鈕 */}
+                        <button
+                          type="button"
+                          onClick={() => startEdit(ev)}
+                          title="編輯此 Play"
+                          className="p-1.5 text-slate-400 hover:text-indigo-300 hover:bg-slate-800 rounded-lg transition-colors"
+                        >
+                          <Edit2 className="w-3.5 h-3.5" />
+                        </button>
+
+                        {/* 刪除按鈕 */}
+                        <button
+                          type="button"
+                          onClick={() => deletePlay(innIdx, ev.id)}
+                          title="刪除此 Play"
+                          className="p-1.5 text-slate-500 hover:text-rose-400 hover:bg-rose-950/40 rounded-lg transition-colors"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
                     </div>
 
-                    {/* 右側：標籤與操作按鈕 */}
-                    <div className="flex items-center gap-2 shrink-0">
-                      {ev.runs_scored > 0 && (
-                        <span className="text-xs font-bold text-emerald-400 bg-emerald-950/60 px-2 py-0.5 rounded border border-emerald-800">
-                          +{ev.runs_scored} 分
-                        </span>
-                      )}
-                      {ev.outs_recorded > 0 && (
-                        <span className="text-xs font-bold text-rose-400 bg-rose-950/60 px-2 py-0.5 rounded border border-rose-800">
-                          +{ev.outs_recorded} 出局
-                        </span>
-                      )}
+                    {/* 多模態分析真實佐證展開抽屜 */}
+                    {ev.evidence && openedEvidenceIds.has(ev.id) && (
+                      <div className="pt-2.5 border-t border-slate-800/80 bg-slate-900/60 p-3 rounded-xl space-y-3 animate-fadeIn">
+                        <div className="flex items-center justify-between text-xs text-indigo-300 font-bold">
+                          <span className="flex items-center gap-1.5">
+                            <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
+                            AI 多模態分析真實佐證 (視覺影格 + 主播實況語音)
+                          </span>
+                          <span className="text-[11px] text-slate-400 font-normal">
+                            來源：YouTube 直播真實抽幀與音訊轉錄
+                          </span>
+                        </div>
 
-                      {/* 編輯按鈕 */}
-                      <button
-                        type="button"
-                        onClick={() => startEdit(ev)}
-                        title="編輯此 Play"
-                        className="p-1.5 text-slate-400 hover:text-indigo-300 hover:bg-slate-800 rounded-lg transition-colors"
-                      >
-                        <Edit2 className="w-3.5 h-3.5" />
-                      </button>
+                        <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-start">
+                          {/* 截圖與記分板 */}
+                          {ev.evidence.screenshot && (
+                            <div className="md:col-span-5 space-y-1">
+                              <span className="text-[11px] font-semibold text-slate-400 flex items-center gap-1">
+                                <Camera className="w-3 h-3 text-indigo-400" />
+                                📸 轉播影格與記分板即時截圖：
+                              </span>
+                              <img
+                                src={ev.evidence.screenshot}
+                                alt="Play Screenshot"
+                                className="w-full rounded-lg border border-slate-700 shadow-md object-cover"
+                              />
+                            </div>
+                          )}
 
-                      {/* 刪除按鈕 */}
-                      <button
-                        type="button"
-                        onClick={() => deletePlay(innIdx, ev.id)}
-                        title="刪除此 Play"
-                        className="p-1.5 text-slate-500 hover:text-rose-400 hover:bg-rose-950/40 rounded-lg transition-colors"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
+                          {/* 主播播報與 VLM 推導 */}
+                          <div className={`space-y-2.5 ${ev.evidence.screenshot ? "md:col-span-7" : "md:col-span-12"}`}>
+                            {ev.evidence.audio_transcript && (
+                              <div className="space-y-1">
+                                <span className="text-[11px] font-semibold text-emerald-400 flex items-center gap-1">
+                                  <Mic className="w-3 h-3" />
+                                  🎙️ 主播播報實況語音轉錄 (Audio Transcript)：
+                                </span>
+                                <p className="text-xs text-emerald-200 bg-emerald-950/50 p-2.5 rounded-lg border border-emerald-800/60 font-mono leading-relaxed">
+                                  「{ev.evidence.audio_transcript}」
+                                </p>
+                              </div>
+                            )}
+
+                            {ev.evidence.vlm_reasoning && (
+                              <div className="space-y-1">
+                                <span className="text-[11px] font-semibold text-amber-400 flex items-center gap-1">
+                                  <FileText className="w-3 h-3" />
+                                  🧠 多模態綜合決策依據 (VLM Reasoning)：
+                                </span>
+                                <p className="text-xs text-slate-300 bg-slate-950/80 p-2.5 rounded-lg border border-slate-800 leading-relaxed">
+                                  {ev.evidence.vlm_reasoning}
+                                </p>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 );
               })}

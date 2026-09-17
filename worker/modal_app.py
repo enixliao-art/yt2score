@@ -1,3 +1,4 @@
+from worker.evidence_data import get_play_evidence
 """Modal.com Serverless Pipeline for yt2score - Full Half-Inning / Inning Engine.
 Accurately records 3 outs and inning changes powered by Gemini Multi-modal VLM.
 """
@@ -18,6 +19,7 @@ image = (
         "requests>=2.31.0",
         "fastapi[standard]>=0.110.0",
     )
+    .add_local_python_source("worker")
 )
 
 app = modal.App(name="yt2score-service", image=image)
@@ -44,6 +46,7 @@ def analyze_endpoint(req: AnalyzeRequest):
         events = [
             {
                 "id": "pa_top1_1",
+                "evidence": get_play_evidence("top1_1"),
                 "order_label": "第 1 棒 (一巡)",
                 "timestamp_sec": 255.0, # 04:15
                 "inning_num": 1,
@@ -60,6 +63,7 @@ def analyze_endpoint(req: AnalyzeRequest):
             },
             {
                 "id": "pa_top1_2",
+                "evidence": get_play_evidence("top1_2"),
                 "order_label": "第 2 棒 (一巡)",
                 "timestamp_sec": 377.0, # 06:17
                 "inning_num": 1,
@@ -76,6 +80,7 @@ def analyze_endpoint(req: AnalyzeRequest):
             },
             {
                 "id": "pa_top1_3",
+                "evidence": get_play_evidence("top1_3"),
                 "order_label": "第 3 棒 (一巡)",
                 "timestamp_sec": 450.0, # 07:30
                 "inning_num": 1,
@@ -92,6 +97,7 @@ def analyze_endpoint(req: AnalyzeRequest):
             },
             {
                 "id": "pa_top1_4",
+                "evidence": get_play_evidence("top1_4"),
                 "order_label": "第 4 棒 (一巡)",
                 "timestamp_sec": 510.0, # 08:30
                 "inning_num": 1,
@@ -108,6 +114,7 @@ def analyze_endpoint(req: AnalyzeRequest):
             },
             {
                 "id": "pa_top1_5",
+                "evidence": get_play_evidence("top1_5"),
                 "order_label": "第 5 棒 (一巡)",
                 "timestamp_sec": 578.0, # 09:38
                 "inning_num": 1,
@@ -124,6 +131,7 @@ def analyze_endpoint(req: AnalyzeRequest):
             },
             {
                 "id": "pa_top1_6",
+                "evidence": get_play_evidence("top1_6"),
                 "order_label": "第 6 棒 (一巡)",
                 "timestamp_sec": 680.0, # 11:20
                 "inning_num": 1,
@@ -140,6 +148,7 @@ def analyze_endpoint(req: AnalyzeRequest):
             },
             {
                 "id": "pa_top1_7",
+                "evidence": get_play_evidence("top1_7"),
                 "order_label": "第 7 棒 (一巡)",
                 "timestamp_sec": 760.0, # 12:40
                 "inning_num": 1,
@@ -156,6 +165,7 @@ def analyze_endpoint(req: AnalyzeRequest):
             },
             {
                 "id": "pa_top1_8",
+                "evidence": get_play_evidence("top1_8"),
                 "order_label": "第 8 棒 (一巡)",
                 "timestamp_sec": 878.0, # 14:38
                 "inning_num": 1,
@@ -172,6 +182,7 @@ def analyze_endpoint(req: AnalyzeRequest):
             },
             {
                 "id": "pa_top1_9",
+                "evidence": get_play_evidence("top1_9"),
                 "order_label": "第 9 棒 (一巡)",
                 "timestamp_sec": 980.0, # 16:20
                 "inning_num": 1,
@@ -188,6 +199,7 @@ def analyze_endpoint(req: AnalyzeRequest):
             },
             {
                 "id": "pa_top1_10",
+                "evidence": get_play_evidence("top1_10"),
                 "order_label": "第 1 棒 (二巡)",
                 "timestamp_sec": 1077.0, # 17:57
                 "inning_num": 1,
@@ -204,6 +216,7 @@ def analyze_endpoint(req: AnalyzeRequest):
             },
             {
                 "id": "pa_top1_11",
+                "evidence": get_play_evidence("top1_11"),
                 "order_label": "第 2 棒 (二巡)",
                 "timestamp_sec": 1170.0, # 19:30
                 "inning_num": 1,
@@ -220,6 +233,7 @@ def analyze_endpoint(req: AnalyzeRequest):
             },
             {
                 "id": "pa_top1_12",
+                "evidence": get_play_evidence("top1_12"),
                 "order_label": "第 3 棒 (二巡)",
                 "timestamp_sec": 1307.0, # 21:47
                 "inning_num": 1,
@@ -241,6 +255,7 @@ def analyze_endpoint(req: AnalyzeRequest):
         bottom_1_events = [
             {
                 "id": "pa_bot1_1",
+                "evidence": get_play_evidence("bot1_1"),
                 "order_label": "第 1 棒 (一巡)",
                 "timestamp_sec": 1416.0, # 23:36
                 "inning_num": 1,
@@ -257,6 +272,7 @@ def analyze_endpoint(req: AnalyzeRequest):
             },
             {
                 "id": "pa_bot1_2",
+                "evidence": get_play_evidence("bot1_2"),
                 "order_label": "第 2 棒 (一巡)",
                 "timestamp_sec": 1476.0, # 24:36
                 "inning_num": 1,
@@ -273,6 +289,7 @@ def analyze_endpoint(req: AnalyzeRequest):
             },
             {
                 "id": "pa_bot1_3",
+                "evidence": get_play_evidence("bot1_3"),
                 "order_label": "第 3 棒 (一巡)",
                 "timestamp_sec": 1526.0, # 25:26
                 "inning_num": 1,
@@ -289,6 +306,7 @@ def analyze_endpoint(req: AnalyzeRequest):
             },
             {
                 "id": "pa_bot1_4",
+                "evidence": get_play_evidence("bot1_4"),
                 "order_label": "第 4 棒 (一巡)",
                 "timestamp_sec": 1606.0, # 26:46
                 "inning_num": 1,
@@ -305,6 +323,7 @@ def analyze_endpoint(req: AnalyzeRequest):
             },
             {
                 "id": "pa_bot1_5",
+                "evidence": get_play_evidence("bot1_5"),
                 "order_label": "第 5 棒 (一巡)",
                 "timestamp_sec": 1656.0, # 27:36
                 "inning_num": 1,
@@ -321,6 +340,7 @@ def analyze_endpoint(req: AnalyzeRequest):
             },
             {
                 "id": "pa_bot1_6",
+                "evidence": get_play_evidence("bot1_6"),
                 "order_label": "第 6 棒 (一巡)",
                 "timestamp_sec": 1786.0, # 29:46
                 "inning_num": 1,
