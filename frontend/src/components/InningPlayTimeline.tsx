@@ -331,12 +331,33 @@ export const InningPlayTimeline: React.FC<InningPlayTimelineProps> = ({
 
   return (
     <div className="space-y-6">
+      {/* 快速局數導航標籤 */}
+      {innings.length > 2 && (
+        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-thin bg-slate-900/60 p-2 rounded-xl border border-slate-800/80">
+          <span className="text-xs text-slate-400 font-semibold shrink-0 mr-1">局數快速導航：</span>
+          {innings.map((inn, idx) => {
+            const label = `${inn.inning_num}${inn.inning_half === "TOP" ? "上" : "下"}`;
+            const runs = inn.inning_half === "TOP" ? inn.guest_runs : inn.home_runs;
+            return (
+              <a
+                key={idx}
+                href={`#inning-${inn.inning_num}-${inn.inning_half}`}
+                className="text-xs px-2.5 py-1 rounded-lg bg-slate-800/80 border border-slate-700/80 text-slate-300 hover:text-white hover:bg-indigo-600 hover:border-indigo-500 transition-colors shrink-0 font-mono"
+              >
+                {label} ({runs}分)
+              </a>
+            );
+          })}
+        </div>
+      )}
+
       {innings.map((inn, innIdx) => {
         const halfText = inn.inning_half === "TOP" ? "上半局" : "下半局";
         return (
           <div
             key={innIdx}
-            className="bg-slate-900/90 rounded-2xl p-5 border border-slate-800 shadow-xl space-y-4"
+            id={`inning-${inn.inning_num}-${inn.inning_half}`}
+            className="bg-slate-900/90 rounded-2xl p-5 border border-slate-800 shadow-xl space-y-4 scroll-mt-20"
           >
             {/* 半局標題與總分 */}
             <div className="flex items-center justify-between border-b border-slate-800 pb-3">

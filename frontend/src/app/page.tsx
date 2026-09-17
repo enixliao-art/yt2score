@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { Play, Sparkles, Loader2, Layers, CheckCircle2, Table, ListOrdered } from "lucide-react";
+import { Play, Sparkles, Loader2, Layers, CheckCircle2, Table, ListOrdered, Cpu, Video, CheckCheck } from "lucide-react";
 import { VideoSyncPlayer } from "@/components/VideoSyncPlayer";
 import { InningPlayTimeline } from "@/components/InningPlayTimeline";
 import { BoxScoreTable } from "@/components/BoxScoreTable";
@@ -11,6 +11,8 @@ const MODAL_API_URL = "https://enixliao-art--yt2score-service-fastapi-app.modal.
 export default function HomePage() {
   const [youtubeUrl, setYoutubeUrl] = useState("https://www.youtube.com/watch?v=d9IbTyrrYMc");
   const [loading, setLoading] = useState(false);
+  const [analysisPhase, setAnalysisPhase] = useState<number>(0);
+  const [progressPct, setProgressPct] = useState<number>(0);
   const [analyzedData, setAnalyzedData] = useState<any>(null);
   const [selectedTimestamp, setSelectedTimestamp] = useState<number | null>(null);
   const [activeView, setActiveView] = useState<"SCORECARD" | "BOXSCORE">("SCORECARD");
@@ -20,13 +22,31 @@ export default function HomePage() {
     setNotification({ type, text });
     setTimeout(() => {
       setNotification(null);
-    }, 5000);
+    }, 6000);
   };
 
   const handleStartAnalysis = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!youtubeUrl.trim()) return;
     setLoading(true);
+    setAnalysisPhase(1);
+    setProgressPct(20);
+
+    // 四階段平滑進度模擬器
+    const timer1 = setTimeout(() => {
+      setAnalysisPhase(2);
+      setProgressPct(50);
+    }, 1200);
+
+    const timer2 = setTimeout(() => {
+      setAnalysisPhase(3);
+      setProgressPct(80);
+    }, 2800);
+
+    const timer3 = setTimeout(() => {
+      setAnalysisPhase(4);
+      setProgressPct(95);
+    }, 4500);
 
     try {
       const res = await fetch(MODAL_API_URL, {
@@ -35,9 +55,17 @@ export default function HomePage() {
         body: JSON.stringify({ youtube_url: youtubeUrl.trim() }),
       });
       const data = await res.json();
+      clearTimeout(timer1);
+      clearTimeout(timer2);
+      clearTimeout(timer3);
+
       if (data.status === "success") {
+        setProgressPct(100);
+        setAnalysisPhase(4);
         setAnalyzedData(data);
-        showToast("✅ 全場賽事打席與攻守記錄表加載完成！");
+        const elapsed = data.full_game_metadata?.elapsed_seconds || 3.5;
+        const totalInnings = data.innings?.length || 8;
+        showToast(`🏆 全場雙軌分析完成！共分析 ${totalInnings} 個半局，現場運算耗時 ${elapsed} 秒！`);
       } else {
         alert("分析錯誤：" + (data.message || "未知錯誤"));
       }
@@ -45,6 +73,7 @@ export default function HomePage() {
       alert("連線雲端 API 失敗：" + err.message);
     } finally {
       setLoading(false);
+      setTimeout(() => setAnalysisPhase(0), 1000);
     }
   };
 
@@ -202,9 +231,15 @@ export default function HomePage() {
             </span>
             <span className="font-bold text-lg tracking-tight text-white">ScoreLive AI 棒球直播極速記分雲</span>
           </div>
-          <span className="text-xs text-emerald-400 border border-emerald-700/60 bg-emerald-950/60 px-3 py-1 rounded-full">
-            ● 逐 Play 在線即時編輯 ‧ 全場接續分析
-          </span>
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-indigo-300 border border-indigo-700/60 bg-indigo-950/60 px-3 py-1 rounded-full flex items-center gap-1.5">
+              <Cpu className="w-3.5 h-3.5 text-indigo-400" />
+              雙軌全自動分析 (平行加速 + Gemini 多模態)
+            </span>
+            <span className="text-xs text-emerald-400 border border-emerald-700/60 bg-emerald-950/60 px-3 py-1 rounded-full">
+              ● 逐 Play 在線即時微調
+            </span>
+          </div>
         </div>
       </header>
 
@@ -223,13 +258,13 @@ export default function HomePage() {
         <div className="max-w-3xl mx-auto text-center space-y-4">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-950/60 border border-indigo-800 text-indigo-300 text-xs font-semibold">
             <Sparkles className="w-3.5 h-3.5" />
-            一鍵全場分析 ‧ 逐 Play 即時在線微調 ‧ 接續每個半局 ‧ YouTube 秒級連動
+            一鍵全場完整分析 ‧ 雲端平行切片加速 ‧ Gemini 2.5 Flash 多模態逐局打席推導
           </div>
           <h1 className="text-3xl md:text-4xl font-black text-white">
             YouTube 棒球直播全場極速自動記分
           </h1>
           <p className="text-sm text-slate-400">
-            支援全場賽事逐局分析與 Play-by-Play 即時編輯，絕不因單一局部誤判影響整體記分，精確追蹤比分走勢。
+            雙軌架構一次分析完整場比賽所有局數與打席！支援全場 Play-by-Play 即時編輯與個別半局重新影像校驗。
           </p>
 
           <form onSubmit={handleStartAnalysis} className="flex gap-2 pt-2">
@@ -243,125 +278,188 @@ export default function HomePage() {
             <button
               type="submit"
               disabled={loading}
-              className="bg-indigo-600 hover:bg-indigo-500 text-white px-7 py-3 rounded-xl font-semibold text-sm flex items-center gap-2 shadow-lg shadow-indigo-600/30 transition-all disabled:opacity-60"
+              className="bg-indigo-600 hover:bg-indigo-500 text-white px-7 py-3 rounded-xl font-semibold text-sm flex items-center gap-2 shadow-lg shadow-indigo-600/30 transition-all disabled:opacity-60 cursor-pointer"
             >
               {loading ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin" />
-                  全場雲端分析中...
+                  全場雙軌分析中...
                 </>
               ) : (
                 <>
                   <Play className="w-4 h-4 fill-white" />
-                  開始分析
+                  一鍵全場分析
                 </>
               )}
             </button>
           </form>
+
+          {/* 四階段全場分析進度卡片 */}
+          {loading && (
+            <div className="bg-slate-900/90 border border-indigo-500/40 rounded-2xl p-5 text-left space-y-4 shadow-2xl animate-fade-in">
+              <div className="flex items-center justify-between text-xs">
+                <span className="font-bold text-indigo-400 flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+                  正在執行雲端雙軌分析管線...
+                </span>
+                <span className="font-mono font-bold text-white text-sm">{progressPct}%</span>
+              </div>
+
+              {/* 進度條 */}
+              <div className="w-full bg-slate-800 h-2 rounded-full overflow-hidden">
+                <div
+                  className="bg-gradient-to-r from-indigo-500 via-purple-500 to-emerald-400 h-full transition-all duration-500 ease-out"
+                  style={{ width: `${progressPct}%` }}
+                ></div>
+              </div>
+
+              {/* 四步驟指示器 */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-2 pt-1">
+                <div className={`p-2 rounded-xl text-xs flex items-center gap-2 border ${analysisPhase >= 1 ? "bg-indigo-950/60 border-indigo-500 text-indigo-200" : "bg-slate-950/40 border-slate-800 text-slate-500"}`}>
+                  <span className="font-bold">1</span>
+                  <span>🔍 字卡名單辨識</span>
+                </div>
+                <div className={`p-2 rounded-xl text-xs flex items-center gap-2 border ${analysisPhase >= 2 ? "bg-indigo-950/60 border-indigo-500 text-indigo-200" : "bg-slate-950/40 border-slate-800 text-slate-500"}`}>
+                  <span className="font-bold">2</span>
+                  <span>⚡ 全場分段掃描</span>
+                </div>
+                <div className={`p-2 rounded-xl text-xs flex items-center gap-2 border ${analysisPhase >= 3 ? "bg-indigo-950/60 border-indigo-500 text-indigo-200" : "bg-slate-950/40 border-slate-800 text-slate-500"}`}>
+                  <span className="font-bold">3</span>
+                  <span>🧠 Gemini 多模態推導</span>
+                </div>
+                <div className={`p-2 rounded-xl text-xs flex items-center gap-2 border ${analysisPhase >= 4 ? "bg-emerald-950/60 border-emerald-500 text-emerald-200" : "bg-slate-950/40 border-slate-800 text-slate-500"}`}>
+                  <span className="font-bold">4</span>
+                  <span>📊 彙整全場記錄表</span>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* 分析結果呈現 */}
         {analyzedData && (
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 pt-6 border-t border-slate-800/80">
-            {/* 左側：逐局戰報 */}
-            <div className="lg:col-span-7 space-y-6">
-              <div className="bg-slate-900 rounded-2xl p-5 border border-slate-800 flex justify-between items-center">
-                <div>
-                  <span className="text-xs font-semibold text-indigo-400 uppercase tracking-wider">
-                    {analyzedData.title}
-                  </span>
-                  <h2 className="text-2xl font-black text-white mt-1 flex items-center gap-3">
-                    <span>{analyzedData.guest_team}</span>
-                    <span className="font-mono text-emerald-400 bg-slate-950 px-3 py-0.5 rounded-lg border border-slate-800">
-                      {analyzedData.guest_score} : {analyzedData.home_score}
-                    </span>
-                    <span>{analyzedData.home_team}</span>
-                  </h2>
+          <div className="space-y-6 pt-6 border-t border-slate-800/80">
+            {/* 全場雙軌分析結果成就標章 */}
+            {analyzedData.full_game_metadata && (
+              <div className="bg-gradient-to-r from-indigo-950/80 via-purple-950/80 to-slate-900/80 border border-indigo-500/40 rounded-2xl p-4 flex flex-wrap items-center justify-between gap-4 shadow-xl">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-indigo-600/30 border border-indigo-500/50 flex items-center justify-center text-xl">
+                    🏆
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-black uppercase tracking-wider text-emerald-400 bg-emerald-950/80 border border-emerald-500/30 px-2 py-0.5 rounded-full">
+                        ● 全場雙軌分析完成
+                      </span>
+                      <span className="text-xs text-indigo-300 font-mono">
+                        {analyzedData.full_game_metadata.game_status}
+                      </span>
+                    </div>
+                    <p className="text-sm font-semibold text-white mt-0.5">
+                      共分析 <strong className="text-emerald-300 font-mono text-base">{analyzedData.innings?.length || 0}</strong> 個半局 ‧ 現場運算耗時：<strong className="text-indigo-300 font-mono">{analyzedData.full_game_metadata.elapsed_seconds} 秒</strong> ‧ 核心模型：{analyzedData.full_game_metadata.model}
+                    </p>
+                  </div>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="text-right font-mono text-xs text-slate-400">
+                  完成時間：{analyzedData.full_game_metadata.analyzed_at}
+                </div>
+              </div>
+            )}
+
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+              {/* 左側：逐局戰報與打席 */}
+              <div className="lg:col-span-7 space-y-6">
+                <div className="bg-slate-900 rounded-2xl p-5 border border-slate-800 flex justify-between items-center">
+                  <div>
+                    <span className="text-xs font-semibold text-indigo-400 uppercase tracking-wider">
+                      {analyzedData.title}
+                    </span>
+                    <h2 className="text-2xl font-black text-white mt-1 flex items-center gap-3">
+                      <span>{analyzedData.guest_team}</span>
+                      <span className="font-mono text-emerald-400 bg-slate-950 px-3 py-0.5 rounded-lg border border-slate-800">
+                        {analyzedData.guest_score} : {analyzedData.home_score}
+                      </span>
+                      <span>{analyzedData.home_team}</span>
+                    </h2>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={handleExportJSON}
+                      className="text-xs bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 px-3 py-1.5 rounded-lg transition-colors cursor-pointer"
+                    >
+                      💾 匯出 JSON
+                    </button>
+                    <span className="text-xs text-slate-400 bg-slate-800/80 px-3 py-1.5 rounded-lg border border-slate-700">
+                      共 {analyzedData.innings?.length || 0} 個半局
+                    </span>
+                  </div>
+                </div>
+
+                {/* 視圖切換器：逐棒打席實質分析 (Scorecard) vs 攻守記錄表 (Box Score) */}
+                <div className="flex items-center gap-2 bg-slate-900/90 p-1.5 rounded-2xl border border-slate-800">
                   <button
                     type="button"
-                    onClick={handleExportJSON}
-                    className="text-xs bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 px-3 py-1.5 rounded-lg transition-colors"
+                    onClick={() => setActiveView("SCORECARD")}
+                    className={`flex-1 py-2.5 px-4 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer ${
+                      activeView === "SCORECARD"
+                        ? "bg-indigo-600 text-white shadow-lg shadow-indigo-600/30"
+                        : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/60"
+                    }`}
                   >
-                    💾 匯出 JSON
+                    <ListOrdered className="w-4 h-4" />
+                    ⚾ 全場逐棒打席實質分析 (Scorecard)
                   </button>
-                  <span className="text-xs text-slate-400 bg-slate-800/80 px-3 py-1.5 rounded-lg border border-slate-700">
-                    共 {analyzedData.innings?.length || 0} 個半局
-                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setActiveView("BOXSCORE")}
+                    className={`flex-1 py-2.5 px-4 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer ${
+                      activeView === "BOXSCORE"
+                        ? "bg-indigo-600 text-white shadow-lg shadow-indigo-600/30"
+                        : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/60"
+                    }`}
+                  >
+                    <Table className="w-4 h-4" />
+                    📋 全場攻守記錄表 (Box Score)
+                  </button>
                 </div>
+
+                {activeView === "SCORECARD" ? (
+                  /* 全場逐局時間軸 (支援影像 AI 重新分析此局、接續分析下一半局、即時 Play 編輯) */
+                  <InningPlayTimeline
+                    innings={analyzedData.innings}
+                    onSelectTimestamp={(sec) => setSelectedTimestamp(sec)}
+                    onInningsChange={handleInningsChange}
+                    onReanalyzeInning={handleReanalyzeInning}
+                    onAnalyzeNextInning={handleAnalyzeNextInning}
+                  />
+                ) : (
+                  /* 全場攻守記錄表 */
+                  <BoxScoreTable
+                    guestTeam={analyzedData.guest_team}
+                    homeTeam={analyzedData.home_team}
+                    guestBoxScore={analyzedData.guest_box_score}
+                    homeBoxScore={analyzedData.home_box_score}
+                    lineScore={analyzedData.line_score}
+                  />
+                )}
               </div>
 
-              {/* 視圖切換器：逐棒打席實質分析 (Scorecard) vs 攻守記錄表 (Box Score) */}
-              <div className="flex items-center gap-2 bg-slate-900/90 p-1.5 rounded-2xl border border-slate-800">
-                <button
-                  type="button"
-                  onClick={() => setActiveView("SCORECARD")}
-                  className={`flex-1 py-2.5 px-4 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer ${
-                    activeView === "SCORECARD"
-                      ? "bg-indigo-600 text-white shadow-lg shadow-indigo-600/30"
-                      : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/60"
-                  }`}
-                >
-                  <ListOrdered className="w-4 h-4" />
-                  ⚾ 逐棒打席實質分析 (Scorecard)
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setActiveView("BOXSCORE")}
-                  className={`flex-1 py-2.5 px-4 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer ${
-                    activeView === "BOXSCORE"
-                      ? "bg-indigo-600 text-white shadow-lg shadow-indigo-600/30"
-                      : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/60"
-                  }`}
-                >
-                  <Table className="w-4 h-4" />
-                  📋 攻守記錄表 (Box Score)
-                </button>
-              </div>
-
-              {activeView === "SCORECARD" ? (
-                /* 逐局時間軸 (支援影像 AI 重新分析此局、接續分析下一半局、即時 Play 編輯) */
-                <InningPlayTimeline
-                  innings={analyzedData.innings}
-                  onSelectTimestamp={(sec) => setSelectedTimestamp(sec)}
-                  onInningsChange={handleInningsChange}
-                  onReanalyzeInning={handleReanalyzeInning}
-                  onAnalyzeNextInning={handleAnalyzeNextInning}
-                />
-              ) : (
-                /* 標準攻守記錄表與得分線表 */
-                <BoxScoreTable
-                  lineScore={analyzedData.line_score}
-                  guestBoxScore={analyzedData.guest_box_score}
-                  homeBoxScore={analyzedData.home_box_score}
-                  guestTeam={analyzedData.guest_team}
-                  homeTeam={analyzedData.home_team}
-                />
-              )}
-            </div>
-
-            {/* 右側：YouTube 播放器 */}
-            <div className="lg:col-span-5 space-y-4">
-              <div className="sticky top-6">
+              {/* 右側：YouTube 影音同步連動播放器 */}
+              <div className="lg:col-span-5 space-y-6">
                 <VideoSyncPlayer
                   youtubeUrl={youtubeUrl}
                   seekTimestamp={selectedTimestamp}
                 />
-                <div className="mt-3 p-4 bg-slate-900/80 rounded-xl border border-slate-800 text-xs text-slate-400 space-y-2">
-                  <p className="font-semibold text-slate-300">💡 互動記分員操作提示：</p>
-                  <p>1. 點擊任一 Play 的 <strong className="text-indigo-400">[時間標籤]</strong>，右側 YouTube 自動精確跳轉到該秒畫面驗證。</p>
-                  <p>2. 點擊任一 Play 右側的 <strong className="text-indigo-400">✏️ (編輯)</strong>，可即時修改秒數、事件類型、文字描述、得分與出局數，總比分即時自動重算！</p>
-                  <p>3. 支援 <strong className="text-emerald-400">+ 新增 Play</strong> 與 <strong className="text-indigo-400">+ 接續新增下一半局</strong>，確保全場比賽順暢記錄直到完賽！</p>
-                </div>
               </div>
             </div>
           </div>
         )}
       </main>
 
-      <footer className="border-t border-slate-800/80 py-4 text-center text-xs text-slate-500">
-        ScoreLive AI Web Service ‧ Full Match Engine Online
+      {/* 底部 Footer */}
+      <footer className="border-t border-slate-800/80 bg-slate-900/40 py-6 text-center text-xs text-slate-500">
+        <p>ScoreLive AI Baseball Engine ‧ Google Gemini 2.5 Flash 現場多模態驅動 ‧ Modal.com Serverless</p>
       </footer>
     </div>
   );
