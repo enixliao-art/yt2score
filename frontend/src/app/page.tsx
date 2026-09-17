@@ -1,9 +1,10 @@
 "use client";
 
 import React, { useState } from "react";
-import { Play, Sparkles, Loader2, Layers, CheckCircle2 } from "lucide-react";
+import { Play, Sparkles, Loader2, Layers, CheckCircle2, Table, ListOrdered } from "lucide-react";
 import { VideoSyncPlayer } from "@/components/VideoSyncPlayer";
 import { InningPlayTimeline } from "@/components/InningPlayTimeline";
+import { BoxScoreTable } from "@/components/BoxScoreTable";
 
 const MODAL_API_URL = "https://enixliao-art--yt2score-service-fastapi-app.modal.run/api/analyze";
 
@@ -12,6 +13,7 @@ export default function HomePage() {
   const [loading, setLoading] = useState(false);
   const [analyzedData, setAnalyzedData] = useState<any>(null);
   const [selectedTimestamp, setSelectedTimestamp] = useState<number | null>(null);
+  const [activeView, setActiveView] = useState<"SCORECARD" | "BOXSCORE">("SCORECARD");
 
   const handleStartAnalysis = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -226,14 +228,53 @@ export default function HomePage() {
                 </div>
               </div>
 
-              {/* 逐局時間軸 (支援影像 AI 重新分析此局、接續分析下一半局、即時 Play 編輯) */}
-              <InningPlayTimeline
-                innings={analyzedData.innings}
-                onSelectTimestamp={(sec) => setSelectedTimestamp(sec)}
-                onInningsChange={handleInningsChange}
-                onReanalyzeInning={handleReanalyzeInning}
-                onAnalyzeNextInning={handleAnalyzeNextInning}
-              />
+              {/* 視圖切換器：逐棒打席實質分析 (Scorecard) vs 攻守記錄表 (Box Score) */}
+              <div className="flex items-center gap-2 bg-slate-900/90 p-1.5 rounded-2xl border border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setActiveView("SCORECARD")}
+                  className={`flex-1 py-2.5 px-4 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer ${
+                    activeView === "SCORECARD"
+                      ? "bg-indigo-600 text-white shadow-lg shadow-indigo-600/30"
+                      : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/60"
+                  }`}
+                >
+                  <ListOrdered className="w-4 h-4" />
+                  ⚾ 逐棒打席實質分析 (Scorecard)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveView("BOXSCORE")}
+                  className={`flex-1 py-2.5 px-4 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer ${
+                    activeView === "BOXSCORE"
+                      ? "bg-indigo-600 text-white shadow-lg shadow-indigo-600/30"
+                      : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/60"
+                  }`}
+                >
+                  <Table className="w-4 h-4" />
+                  📋 攻守記錄表 (Box Score)
+                </button>
+              </div>
+
+              {activeView === "SCORECARD" ? (
+                /* 逐局時間軸 (支援影像 AI 重新分析此局、接續分析下一半局、即時 Play 編輯) */
+                <InningPlayTimeline
+                  innings={analyzedData.innings}
+                  onSelectTimestamp={(sec) => setSelectedTimestamp(sec)}
+                  onInningsChange={handleInningsChange}
+                  onReanalyzeInning={handleReanalyzeInning}
+                  onAnalyzeNextInning={handleAnalyzeNextInning}
+                />
+              ) : (
+                /* 標準攻守記錄表與得分線表 */
+                <BoxScoreTable
+                  lineScore={analyzedData.line_score}
+                  guestBoxScore={analyzedData.guest_box_score}
+                  homeBoxScore={analyzedData.home_box_score}
+                  guestTeam={analyzedData.guest_team}
+                  homeTeam={analyzedData.home_team}
+                />
+              )}
             </div>
 
             {/* 右側：YouTube 播放器 */}

@@ -27,6 +27,11 @@ export interface PlayEvent {
   outs_recorded: number;
   batter_number?: string;
   batter_name?: string;
+  order_label?: string;
+  result?: string;
+  rbi?: number;
+  batter_pos?: string;
+  batter_num?: string;
   flag?: string;
 }
 
@@ -472,8 +477,8 @@ export const InningPlayTimeline: React.FC<InningPlayTimelineProps> = ({
                     key={ev.id}
                     className="group flex items-center justify-between p-2.5 rounded-xl bg-slate-950/70 hover:bg-indigo-950/40 border border-slate-800/90 hover:border-indigo-500/50 transition-all"
                   >
-                    {/* 左側：秒數跳轉與描述 */}
-                    <div className="flex items-center gap-2.5 flex-1 min-w-0 pr-2">
+                    {/* 左側：秒數跳轉、棒次徽章、打席結果與描述 */}
+                    <div className="flex items-center gap-2 flex-1 min-w-0 pr-2">
                       <button
                         type="button"
                         onClick={() => onSelectTimestamp(ev.timestamp_sec)}
@@ -483,6 +488,30 @@ export const InningPlayTimeline: React.FC<InningPlayTimelineProps> = ({
                         <PlayCircle className="w-3.5 h-3.5" />
                         {timeLabel}
                       </button>
+
+                      {ev.order_label && (
+                        <span className="px-2 py-0.5 rounded-md text-[11px] font-bold bg-slate-800 text-slate-300 border border-slate-700 shrink-0">
+                          {ev.order_label}
+                        </span>
+                      )}
+
+                      {ev.result && (
+                        <span
+                          className={`px-2 py-0.5 rounded-md text-[11px] font-bold border shrink-0 ${
+                            ev.event_type === "HOME_RUN"
+                              ? "bg-rose-950/80 text-rose-300 border-rose-700"
+                              : ev.event_type === "SINGLE" ||
+                                ev.event_type === "DOUBLE" ||
+                                ev.event_type === "TRIPLE"
+                              ? "bg-emerald-950/80 text-emerald-300 border-emerald-700"
+                              : ev.event_type === "WALK"
+                              ? "bg-sky-950/80 text-sky-300 border-sky-700"
+                              : "bg-slate-800 text-slate-400 border-slate-700"
+                          }`}
+                        >
+                          {ev.result}
+                        </span>
+                      )}
 
                       <span
                         onClick={() => onSelectTimestamp(ev.timestamp_sec)}
