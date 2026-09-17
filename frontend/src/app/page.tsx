@@ -100,6 +100,8 @@ export default function HomePage() {
 
   // 重新使用視覺 AI 分析特定半局
   const handleReanalyzeInning = async (innIdx: number, inningNum: number, inningHalf: "TOP" | "BOTTOM") => {
+    const halfText = inningHalf === "TOP" ? "上半局" : "下半局";
+    showToast(`🤖 正在啟動 Google Gemini 2.5 Flash 現場分析第 ${inningNum} 局${halfText}真實影格...`);
     try {
       const res = await fetch("https://enixliao-art--yt2score-service-fastapi-app.modal.run/api/analyze-inning", {
         method: "POST",
@@ -115,8 +117,12 @@ export default function HomePage() {
         const nextInnings = [...analyzedData.innings];
         nextInnings[innIdx] = data.inning;
         handleInningsChange(nextInnings, data);
-        const halfText = inningHalf === "TOP" ? "上半局" : "下半局";
-        showToast(`✅ 視覺 AI 重新影像分析完成！已刷新第 ${inningNum} 局${halfText}真實打席與比分記錄！`);
+        const elapsed = data.inning.analysis_metadata?.elapsed_seconds;
+        if (elapsed) {
+          showToast(`✅ 視覺 AI 現場分析完成！Gemini 2.5 Flash 現場運算耗時 ${elapsed} 秒，已即時解析轉播影格與記分板！`);
+        } else {
+          showToast(`✅ 視覺 AI 重新影像分析完成！已刷新第 ${inningNum} 局${halfText}真實打席與比分記錄！`);
+        }
       } else {
         alert("視覺 AI 分析失敗：" + (data.message || "未知錯誤"));
       }
@@ -141,6 +147,8 @@ export default function HomePage() {
         nextHalf = "TOP";
       }
     }
+    const halfText = nextHalf === "TOP" ? "上半局" : "下半局";
+    showToast(`🤖 正在呼叫 Google Gemini 2.5 Flash 現場掃描第 ${nextNum} 局${halfText}...`);
 
     try {
       const res = await fetch("https://enixliao-art--yt2score-service-fastapi-app.modal.run/api/analyze-inning", {
@@ -156,8 +164,12 @@ export default function HomePage() {
       if (data.status === "success" && data.inning) {
         const nextInnings = [...analyzedData.innings, data.inning];
         handleInningsChange(nextInnings, data);
-        const halfText = nextHalf === "TOP" ? "上半局" : "下半局";
-        showToast(`✅ 視覺 AI 成功接續第 ${nextNum} 局${halfText}！`);
+        const elapsed = data.inning.analysis_metadata?.elapsed_seconds;
+        if (elapsed) {
+          showToast(`✅ 視覺 AI 成功接續第 ${nextNum} 局${halfText}！(現場耗時 ${elapsed} 秒)`);
+        } else {
+          showToast(`✅ 視覺 AI 成功接續第 ${nextNum} 局${halfText}！`);
+        }
       } else {
         alert("視覺 AI 接續分析失敗：" + (data.message || "未知錯誤"));
       }

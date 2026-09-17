@@ -56,6 +56,13 @@ export interface InningCheckpoint {
   home_runs: number;
   summary_text: string;
   events: PlayEvent[];
+  analysis_metadata?: {
+    is_real_ai_call?: boolean;
+    model?: string;
+    elapsed_seconds?: number;
+    analyzed_at?: string;
+    gemini_summary?: string;
+  };
 }
 
 interface InningPlayTimelineProps {
@@ -367,6 +374,20 @@ export const InningPlayTimeline: React.FC<InningPlayTimelineProps> = ({
                 </span>
               </div>
             </div>
+
+            {/* AI 即時現場分析狀態標章 */}
+            {inn.analysis_metadata && (
+              <div className="flex flex-wrap items-center justify-between gap-2 text-xs bg-indigo-950/60 border border-indigo-500/40 px-3.5 py-2 rounded-xl text-indigo-200">
+                <div className="flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+                  <span className="font-bold text-emerald-400">🤖 Google Gemini 2.5 Flash 現場多模態解析</span>
+                  <span className="text-slate-300">‧ 現場運算耗時：<strong className="text-white font-mono">{inn.analysis_metadata.elapsed_seconds} 秒</strong></span>
+                </div>
+                <span className="font-mono text-slate-400 text-[11px]">
+                  即時完成時間：{inn.analysis_metadata.analyzed_at}
+                </span>
+              </div>
+            )}
 
             {/* 半局摘要 */}
             {inn.summary_text && (

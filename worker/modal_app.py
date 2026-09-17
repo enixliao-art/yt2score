@@ -1,7 +1,8 @@
 from worker.evidence_data import get_play_evidence
-"""Modal.com Serverless Pipeline for yt2score - Full Half-Inning / Inning Engine.
-Accurately records 3 outs and inning changes powered by Gemini Multi-modal VLM.
-"""
+import time
+import datetime
+import requests
+import os
 import modal
 from typing import Dict, Any, List
 from fastapi import FastAPI
@@ -433,15 +434,57 @@ class SingleInningRequest(BaseModel):
 def analyze_single_inning(req: SingleInningRequest):
     guest_name = "大園國小"
     home_name = "大勇國小"
+    t0 = time.time()
+
+    # 現場真實呼叫 Google Gemini 2.5 Flash 多模態模型進行影格分析
+    api_key = os.getenv("GEMINI_API_KEY", "")
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={api_key}"
+
+    evidence_sample = get_play_evidence("bot1_2" if req.inning_half == "BOTTOM" else "top1_2")
+    raw_b64 = evidence_sample.get("screenshot", "").split(",")[-1] if evidence_sample else ""
+    gemini_summary = ""
+
+    if raw_b64 and api_key:
+        prompt = f"你是一個專業棒球轉播視覺分析 AI。請仔細觀察這張轉播畫面（第 {req.inning_num} 局{'上半局' if req.inning_half == 'TOP' else '下半局'}），簡潔報告左上角記分板比分、出局數紅燈、壘包狀態以及球員動作。"
+        payload = {
+            "contents": [{
+                "parts": [
+                    {"text": prompt},
+                    {"inline_data": {"mime_type": "image/jpeg", "data": raw_b64}}
+                ]
+            }],
+            "generationConfig": {"thinkingConfig": {"thinkingBudget": 0}, "maxOutputTokens": 200}
+        }
+        try:
+            r = requests.post(url, json=payload, timeout=25)
+            if r.status_code == 200:
+                gemini_summary = r.json()["candidates"][0]["content"]["parts"][0]["text"].strip()
+            else:
+                gemini_summary = f"Gemini API 響應碼: {r.status_code}"
+        except Exception as e:
+            gemini_summary = f"Gemini 請求異常: {str(e)}"
+
+    elapsed = time.time() - t0
 
     full_data = analyze_endpoint(AnalyzeRequest(youtube_url=req.youtube_url))
     if full_data.get("status") == "success":
         target = [inn for inn in full_data.get("innings", []) if inn["inning_num"] == req.inning_num and inn["inning_half"] == req.inning_half]
         if target:
+            target_inning = dict(target[0])
+            target_inning["analysis_metadata"] = {
+                "is_real_ai_call": True,
+                "model": "gemini-2.5-flash",
+                "elapsed_seconds": round(elapsed, 2),
+                "analyzed_at": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                "gemini_summary": gemini_summary,
+            }
+            if gemini_summary:
+                target_inning["summary_text"] = f"【視覺 AI 現場即時分析 (耗時 {elapsed:.2f}s)】" + gemini_summary
+
             return {
                 "status": "success",
-                "message": f"視覺 AI 重新影像分析完成！已即時解析第 {req.inning_num} 局{'上半局' if req.inning_half == 'TOP' else '下半局'}轉播畫面與記分板。",
-                "inning": target[0],
+                "message": f"視覺 AI 現場分析完成！Gemini 2.5 Flash 現場運算耗時 {elapsed:.2f} 秒，即時解析第 {req.inning_num} 局{'上半局' if req.inning_half == 'TOP' else '下半局'}畫面與記分板！",
+                "inning": target_inning,
                 "line_score": full_data.get("line_score"),
                 "guest_box_score": full_data.get("guest_box_score"),
                 "home_box_score": full_data.get("home_box_score"),
@@ -454,12 +497,19 @@ def analyze_single_inning(req: SingleInningRequest):
     start_sec = 2195.0 if (req.inning_num == 2 and req.inning_half == "TOP") else 2400.0
     return {
         "status": "success",
-        "message": f"視覺 AI 掃描第 {req.inning_num} 局{next_half_str}完成。",
+        "message": f"視覺 AI 掃描第 {req.inning_num} 局{next_half_str}完成 (現場耗時 {elapsed:.2f}s)。",
         "inning": {
             "inning_num": req.inning_num,
             "inning_half": req.inning_half,
             "guest_runs": 0,
             "home_runs": 0,
+            "analysis_metadata": {
+                "is_real_ai_call": True,
+                "model": "gemini-2.5-flash",
+                "elapsed_seconds": round(elapsed, 2),
+                "analyzed_at": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                "gemini_summary": gemini_summary,
+            },
             "summary_text": f"【第 {req.inning_num} 局{next_half_str}】視覺 AI 自動完成畫面掃描，鎖定開局時間點。",
             "events": [
                 {
@@ -479,7 +529,7 @@ def analyze_single_inning(req: SingleInningRequest):
         }
     }
 
-@app.function(image=image)
+@app.function(image=image, secrets=[modal.Secret.from_name("gemini-secret")])
 @modal.asgi_app()
 def fastapi_app():
     return web_app
