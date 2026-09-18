@@ -118,9 +118,10 @@ def process_youtube_real(youtube_url: str, custom_inning: int = None, custom_hal
 {{
   "guest_team": "大園國小",
   "home_team": "大勇國小",
-  "guest_score": 10,
-  "home_score": 1,
-  "summary": "大園國小首局灌進 8 分奠定勝基，大勇國小敲出場內全壘打追分，最終大園以 10:1 贏得比賽。"
+  "guest_score": 2,
+  "home_score": 3,
+  "winner": "大勇國小",
+  "summary": "雙方前兩局 1:1 僵持，大園國小在 3 局上攻下超前分；3 局下半大勇國小絕地大反攻，攻佔一三壘後敲出再見逆轉打連得 2 分，終場大勇國小以 3:2 逆轉奪勝結束比賽！"
 }}
 """
         parts: List[Dict[str, Any]] = [{"text": prompt}]
