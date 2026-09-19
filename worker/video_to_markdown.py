@@ -252,6 +252,17 @@ class VideoToMarkdownExtractor:
                 outs = sb_data.get("outs", 0)
                 desc = sb_data.get("description", "")
 
+                # 棒球領域規則校準：
+                # 1. 在第 1 局上半 (TOP)，主隊 (home_team) 尚未上場打擊，得分絕不可能增加。
+                #    若模型讀出分數增加在主隊上，為典型的記分板上下列顛倒，自動校正歸屬給正在進攻之客隊 (大園國小)。
+                if inn == 1 and half == "TOP" and h_score > g_score and last_home_score == 0:
+                    g_score, h_score = h_score, g_score
+                    log(f"觸發棒球領域進攻隊伍校準: 第 1 局上半由客隊進攻，自動校正客隊 ({g_team}) 本局攻勢為 {g_score} 分！")
+
+                # 2. 得分單調遞增原則 (Monotonicity Rule)：比分絕不倒退
+                g_score = max(g_score, last_guest_score)
+                h_score = max(h_score, last_home_score)
+
                 detected_guest_team = g_team
                 detected_home_team = h_team
                 score_changed = (g_score != last_guest_score) or (h_score != last_home_score)
