@@ -21,6 +21,7 @@ image = (
         "pydantic>=2.7.0",
         "requests>=2.31.0",
         "fastapi[standard]>=0.110.0",
+        "Pillow>=10.0.0",
     )
     .add_local_python_source("worker")
     .add_local_dir("worker/evidence", remote_path="/root/worker/evidence")
