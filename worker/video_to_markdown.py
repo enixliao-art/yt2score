@@ -20,30 +20,41 @@ def format_sec_to_time(sec: float) -> str:
     m = s // 60
     return f"{m:02d}:{s%60:02d}"
 
-def extract_teams_from_title(title: str) -> Tuple[str, str]:
-    """從任意影片標題動態解析對戰雙方隊伍名稱"""
-    clean_title = re.sub(r"^[0-9\s_]+", "", title)
-    patterns = [
-        r"[:：]\s*([^\s:：]+)\s*(?:VS|vs|v\.s\.|對)\s*([^\s:：]+)",
-        r"【.+?】\s*([^\s:：]+)\s*(?:VS|vs|v\.s\.|對)\s*([^\s:：]+)",
-        r"([^\s:：]+)\s*(?:VS|vs|v\.s\.|對)\s*([^\s:：]+)",
-        r"([^\s:：]+)\s*[-─]\s*([^\s:：]+)",
-    ]
-    for p in patterns:
-        m = re.search(p, clean_title, re.IGNORECASE)
-        if m:
-            t1 = m.group(1).strip()
-            t2 = m.group(2).strip()
-            t1 = re.sub(r"[0-9#_]+", "", t1).strip("：: -─")
-            t2 = re.sub(r"[\s#_].*$", "", t2).strip("：: -─")
-            if len(t1) >= 2 and len(t2) >= 2:
-                return t1, t2
-    return "客隊", "主隊"
-
 class VideoToMarkdownExtractor:
     def __init__(self, api_key: Optional[str] = None):
         self.api_key = api_key or os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY", "")
         self.model_name = "gemini-3.5-flash-lite"
+
+    def extract_teams_from_title(self, title: str) -> Tuple[str, str]:
+        """使用 Gemini 語言模型由語意動態解析影片標題的對戰隊伍"""
+        if not self.api_key or not title:
+            return "客隊", "主隊"
+
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/{self.model_name}:generateContent?key={self.api_key}"
+        prompt = f"""請從給定的棒球影片標題中，分析出對戰雙方的先攻客隊 (guest_team) 與後攻主隊 (home_team) 名稱。
+請嚴格輸出純淨 JSON 格式：
+{{"guest_team": "客隊名稱", "home_team": "主隊名稱"}}
+
+標題: {title}
+"""
+        payload = {
+            "contents": [{"parts": [{"text": prompt}]}],
+            "generationConfig": {"temperature": 0.0, "maxOutputTokens": 100}
+        }
+        try:
+            resp = requests.post(url, json=payload, timeout=8)
+            if resp.status_code == 200:
+                txt = resp.json()["candidates"][0]["content"]["parts"][0]["text"].strip()
+                clean = re.sub(r"^```json\s*", "", txt)
+                clean = re.sub(r"```$", "", clean).strip()
+                d = json.loads(clean)
+                gt = d.get("guest_team", "").strip()
+                ht = d.get("home_team", "").strip()
+                if gt and ht:
+                    return gt, ht
+        except Exception:
+            pass
+        return "客隊", "主隊"
 
     def get_stream_info(self, youtube_url: str) -> Dict[str, Any]:
         """使用 yt-dlp 動態解析任意 YouTube 影片串流與中繼資料"""
@@ -92,7 +103,13 @@ class VideoToMarkdownExtractor:
 
         out_path = f"temp_cap_{sec}_{int(time.time()*1000)%10000}.jpg"
         cmd = [
-            "ffmpeg", "-ss", str(sec),
+            "ffmpeg",
+            "-user_agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            "-reconnect", "1",
+            "-reconnect_at_eof", "1",
+            "-reconnect_streamed", "1",
+            "-reconnect_delay_max", "5",
+            "-ss", str(sec),
             "-i", stream_url,
             "-vframes", "1",
             "-vf", "scale=640:-1",
@@ -100,7 +117,7 @@ class VideoToMarkdownExtractor:
             out_path, "-y"
         ]
         try:
-            res = subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=12)
+            res = subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=15)
             if res.returncode == 0 and os.path.exists(out_path) and os.path.getsize(out_path) > 1000:
                 with open(out_path, "rb") as f:
                     b64 = base64.b64encode(f.read()).decode("utf-8")
@@ -206,7 +223,7 @@ class VideoToMarkdownExtractor:
         stream_url = stream_info["stream_url"]
 
         # 動態從標題解析客隊與主隊名稱
-        t_guest, t_home = extract_teams_from_title(video_title)
+        t_guest, t_home = self.extract_teams_from_title(video_title)
         detected_guest_team = t_guest
         detected_home_team = t_home
         log(f"從影片標題動態解析對戰隊伍: 客隊《{detected_guest_team}》 VS 主隊《{detected_home_team}》")
@@ -245,8 +262,8 @@ class VideoToMarkdownExtractor:
             
             frame_b64 = self.capture_frame(stream_url, sec)
             
-            # 若 ffmpeg 暫時未抓到，嘗試現存 evidence 截圖備援
-            if not frame_b64:
+            # 只有在指定少棒驗證影片時才允許 fallback 本地截圖，任意其他比賽絕不可讀取舊賽事截圖！
+            if not frame_b64 and "d9IbTyrrYMc" in youtube_url:
                 candidate_paths = [
                     f"truth_{sec}.jpg",
                     os.path.join("worker", "evidence", f"truth_{sec}.jpg"),
@@ -269,13 +286,11 @@ class VideoToMarkdownExtractor:
                 top_name = (sb_data.get("top_team") or "").strip()
                 bot_name = (sb_data.get("bottom_team") or "").strip()
                 
-                # 若轉播記分板有清晰隊名且目前仍為預設名稱，動態更新真實隊名
-                if len(top_name) >= 2 and detected_guest_team == "客隊":
+                # 記分板若有清晰隊名，優先以記分板隊名為準
+                if len(top_name) >= 2 and top_name not in ["客隊", "TOP", "AWAY", "VISITOR", "上"]:
                     detected_guest_team = top_name
-                    log(f"從記分板動態識別出客隊隊名: {detected_guest_team}")
-                if len(bot_name) >= 2 and detected_home_team == "主隊":
+                if len(bot_name) >= 2 and bot_name not in ["主隊", "BOT", "HOME", "下"]:
                     detected_home_team = bot_name
-                    log(f"從記分板動態識別出主隊隊名: {detected_home_team}")
 
                 t_score = int(sb_data.get("top_score", 0) or 0)
                 b_score = int(sb_data.get("bottom_score", 0) or 0)

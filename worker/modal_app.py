@@ -53,10 +53,12 @@ class AnalyzeRequest(BaseModel):
 
 @web_app.post("/api/analyze")
 def analyze_endpoint(req: AnalyzeRequest):
-    """一鍵全場 100% 真實分析：現場解析 YouTube 影片、擷取影格並由 Gemini 2.5 Flash 多模態推導"""
+    """一鍵全場 100% 真實分析：現場解析 YouTube 影片、擷取影格並由 Gemini 多模態推導"""
+    print(f"[API] 收到全場分析請求 URL: {req.youtube_url}")
     try:
         return process_youtube_real(req.youtube_url)
     except Exception as e:
+        print(f"[API] 運算異常: {str(e)}")
         return {"status": "error", "message": f"真實引擎運算異常: {str(e)}"}
 
 class SingleInningRequest(BaseModel):
