@@ -33,16 +33,23 @@ class VideoToMarkdownExtractor:
         try:
             import yt_dlp
             ydl_opts = {
-                "format": "134/230/worst[ext=mp4]/worst",
                 "quiet": True,
                 "no_warnings": True,
-                "socket_timeout": 10,
+                "socket_timeout": 12,
             }
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 info = ydl.extract_info(youtube_url, download=False)
                 title = info.get("title", title)
                 duration = int(info.get("duration", 0) or 0)
-                stream_url = info.get("url", "")
+
+                formats = info.get("formats", [])
+                valid_v = [f for f in formats if f.get("vcodec") != "none" and f.get("url")]
+                medium_v = [f for f in valid_v if 240 <= (f.get("height") or 0) <= 480]
+                chosen = medium_v[0] if medium_v else (valid_v[0] if valid_v else None)
+                if chosen:
+                    stream_url = chosen["url"]
+                else:
+                    stream_url = info.get("url", "")
         except Exception as e:
             print(f"[Extractor] yt-dlp 解析中繼資料失敗: {e}")
 
@@ -60,7 +67,6 @@ class VideoToMarkdownExtractor:
         out_path = f"temp_cap_{sec}_{int(time.time()*1000)%10000}.jpg"
         cmd = [
             "ffmpeg", "-ss", str(sec),
-            "-reconnect", "1", "-reconnect_at_eof", "1", "-reconnect_streamed", "1",
             "-i", stream_url,
             "-vframes", "1",
             "-vf", "scale=640:-1", # 縮放加速傳輸
@@ -211,6 +217,7 @@ class VideoToMarkdownExtractor:
                 log(f"時間點 {time_str} 影格無法讀取，跳過")
                 continue
 
+            log(f"時間點 {time_str} 影格現場擷取成功！正在由 Gemini 視覺模型解析記分板...")
             sb_data = self.analyze_frame_scoreboard(frame_b64, sec)
             
             if sb_data.get("has_scorebug"):
