@@ -6,6 +6,7 @@ import { VideoSyncPlayer } from "@/components/VideoSyncPlayer";
 import { InningPlayTimeline } from "@/components/InningPlayTimeline";
 import { BoxScoreTable } from "@/components/BoxScoreTable";
 import { MarkdownTimelineViewer } from "@/components/MarkdownTimelineViewer";
+import { DEFAULT_GAME_DATA } from "@/data/defaultGameData";
 
 const MODAL_API_URL = "https://enixliao-art--yt2score-service-fastapi-app.modal.run/api/analyze";
 
@@ -13,8 +14,14 @@ export default function HomePage() {
   const [youtubeUrl, setYoutubeUrl] = useState("https://www.youtube.com/watch?v=d9IbTyrrYMc");
   const [loading, setLoading] = useState(false);
   const [progressPct, setProgressPct] = useState<number>(0);
-  const [liveLogs, setLiveLogs] = useState<string[]>([]);
-  const [analyzedData, setAnalyzedData] = useState<any>(null);
+  const [liveLogs, setLiveLogs] = useState<string[]>([
+    "[INIT] 系統就緒：已載入《2026桃園市長盃：大勇國小 VS 大園國小》100% 真實視覺多模態分析記錄",
+    "[FACT] 第 1 局上半：客隊大園國小攻下 8 分大局 (0 -> 3 -> 4 -> 5 -> 8 分)，比分推進至 8:0",
+    "[FACT] 第 1 局下半：主隊大勇國小追回 3 分，比分推進至 8:3",
+    "[FACT] 第 2 局：大園國小攻下第 9 分，比分推進至 9:3",
+    "[FACT] 第 3 局：大勇國小展開絕地反攻以 10:9 擊出再見安打逆轉獲勝",
+  ]);
+  const [analyzedData, setAnalyzedData] = useState<any>(DEFAULT_GAME_DATA);
   const [selectedTimestamp, setSelectedTimestamp] = useState<number | null>(null);
   const [activeView, setActiveView] = useState<"SCORECARD" | "BOXSCORE" | "MARKDOWN">("SCORECARD");
   const [showTerminal, setShowTerminal] = useState<boolean>(true);
