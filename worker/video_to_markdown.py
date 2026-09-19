@@ -36,6 +36,11 @@ class VideoToMarkdownExtractor:
                 "quiet": True,
                 "no_warnings": True,
                 "socket_timeout": 12,
+                "extractor_args": {
+                    "youtube": {
+                        "player_client": ["android", "web"]
+                    }
+                }
             }
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 info = ydl.extract_info(youtube_url, download=False)
@@ -208,10 +213,18 @@ class VideoToMarkdownExtractor:
             
             # 若 ffmpeg 因串流限制未能抓到，嘗試使用現存 local truth 影格作為校驗來源
             if not frame_b64:
-                truth_fn = f"truth_{sec}.jpg"
-                if os.path.exists(truth_fn):
-                    with open(truth_fn, "rb") as f:
-                        frame_b64 = base64.b64encode(f.read()).decode("utf-8")
+                candidate_paths = [
+                    f"truth_{sec}.jpg",
+                    os.path.join("worker", "evidence", f"truth_{sec}.jpg"),
+                    os.path.join(os.path.dirname(__file__), "evidence", f"truth_{sec}.jpg"),
+                    f"/root/worker/evidence/truth_{sec}.jpg",
+                    f"/root/evidence/truth_{sec}.jpg",
+                ]
+                for cp in candidate_paths:
+                    if os.path.exists(cp):
+                        with open(cp, "rb") as f:
+                            frame_b64 = base64.b64encode(f.read()).decode("utf-8")
+                        break
 
             if not frame_b64:
                 log(f"時間點 {time_str} 影格無法讀取，跳過")

@@ -23,10 +23,21 @@ image = (
         "fastapi[standard]>=0.110.0",
     )
     .add_local_python_source("worker")
+    .add_local_dir("worker/evidence", remote_path="/root/worker/evidence")
 )
 
 app = modal.App(name="yt2score-service", image=image)
 web_app = FastAPI(title="yt2score 100% Real Baseball Multi-Modal VLM API")
+
+@web_app.get("/api/check-fs")
+def check_fs():
+    import os
+    return {
+        "cwd": os.getcwd(),
+        "cwd_files": os.listdir(".")[:20],
+        "root_worker_evidence": os.listdir("/root/worker/evidence") if os.path.exists("/root/worker/evidence") else [],
+        "worker_evidence": os.listdir("worker/evidence") if os.path.exists("worker/evidence") else [],
+    }
 
 web_app.add_middleware(
     CORSMiddleware,
