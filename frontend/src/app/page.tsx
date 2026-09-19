@@ -42,25 +42,26 @@ export default function HomePage() {
   const handleStartAnalysis = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!youtubeUrl.trim()) return;
+    setAnalyzedData(null); // 清空舊賽事資料，準備接收全新比賽數據
     setLoading(true);
     setProgressPct(10);
     setLiveLogs([]);
-    addLocalLog(`發起真實全場多模態分析請求: ${youtubeUrl.trim()}`);
+    addLocalLog(`發起全新通用多模態分析請求: ${youtubeUrl.trim()}`);
     addLocalLog("正在連線雲端 Modal GPU/CPU Serverless 實例...");
 
     const t1 = setTimeout(() => {
       setProgressPct(35);
-      addLocalLog("yt-dlp 正在抽取 YouTube 視訊/音訊低延遲串流與中繼資料...");
+      addLocalLog("yt-dlp 正在動態解析影片對戰雙方隊伍與低延遲串流...");
     }, 1500);
 
     const t2 = setTimeout(() => {
       setProgressPct(60);
-      addLocalLog("ffmpeg 正在進行全場時間軸關鍵秒數影格截取 (取樣率: 6 幀)...");
+      addLocalLog("ffmpeg 正在進行全場時間軸動態影格截取...");
     }, 3500);
 
     const t3 = setTimeout(() => {
       setProgressPct(85);
-      addLocalLog("正在將多張轉播真實影格送往 Google Gemini 2.5 Flash 進行多模態記分板辨識與打席推理...");
+      addLocalLog("正在由 Google Gemini 3.5 Flash 多模態模型辨識記分板，並由打席狀態機推導個人攻守成績與打點...");
     }, 6000);
 
     try {

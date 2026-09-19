@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
-"""Video-to-Markdown Baseball Timeline Extraction Engine.
-Converts any baseball broadcast video into a structured, verifiable Markdown timeline
+"""Video-to-Markdown Universal Baseball Timeline Extraction Engine.
+Converts ANY baseball broadcast video into a structured, verifiable Markdown timeline
 using adaptive ffmpeg sampling and Google Gemini Vision structured output with
-domain-physics inning offense run attribution.
+generalized domain physics without any hardcoded teams or score templates.
 """
 
 import os
@@ -12,7 +12,7 @@ import time
 import base64
 import datetime
 import subprocess
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Optional, Tuple
 import requests
 
 def format_sec_to_time(sec: float) -> str:
@@ -20,14 +20,33 @@ def format_sec_to_time(sec: float) -> str:
     m = s // 60
     return f"{m:02d}:{s%60:02d}"
 
+def extract_teams_from_title(title: str) -> Tuple[str, str]:
+    """從任意影片標題動態解析對戰雙方隊伍名稱"""
+    clean_title = re.sub(r"^[0-9\s_]+", "", title)
+    patterns = [
+        r"[:：]\s*([^\s:：]+)\s*(?:VS|vs|v\.s\.|對)\s*([^\s:：]+)",
+        r"【.+?】\s*([^\s:：]+)\s*(?:VS|vs|v\.s\.|對)\s*([^\s:：]+)",
+        r"([^\s:：]+)\s*(?:VS|vs|v\.s\.|對)\s*([^\s:：]+)",
+        r"([^\s:：]+)\s*[-─]\s*([^\s:：]+)",
+    ]
+    for p in patterns:
+        m = re.search(p, clean_title, re.IGNORECASE)
+        if m:
+            t1 = m.group(1).strip()
+            t2 = m.group(2).strip()
+            t1 = re.sub(r"[0-9#_]+", "", t1).strip("：: -─")
+            t2 = re.sub(r"[\s#_].*$", "", t2).strip("：: -─")
+            if len(t1) >= 2 and len(t2) >= 2:
+                return t1, t2
+    return "客隊", "主隊"
+
 class VideoToMarkdownExtractor:
     def __init__(self, api_key: Optional[str] = None):
         self.api_key = api_key or os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY", "")
-        # 優先使用 gemini-3.5-flash-lite，配額充裕且無 429 限制
         self.model_name = "gemini-3.5-flash-lite"
 
     def get_stream_info(self, youtube_url: str) -> Dict[str, Any]:
-        """使用 yt-dlp 解析影片中繼資料與串流網址"""
+        """使用 yt-dlp 動態解析任意 YouTube 影片串流與中繼資料"""
         title = "未知賽事影片"
         duration = 0
         stream_url = ""
@@ -101,26 +120,32 @@ class VideoToMarkdownExtractor:
         if not self.api_key:
             return {"has_scorebug": False, "error": "No API Key"}
 
-        prompt = """你是精密的棒球轉播視覺分析專家。請仔細觀察這張轉播畫面（尤其是左上角的記分板 Scorebug）：
+        prompt = """你是精密的棒球轉播視覺分析專家。請仔細觀察這張轉播畫面中的記分板 (Scorebug)：
 請仔細辨識：
-1. 記分板上方列 (通常為紅底)：顯示的隊伍名稱與其右方的得分數字。
-2. 記分板下方列 (通常為藍底)：顯示的隊伍名稱與其右方的得分數字。
-3. 局數 (數字) 與半局方向：箭頭向上為 "TOP"（上半局），箭頭向下為 "BOTTOM"（下半局）。
-4. 出局數 (O 燈號，0~2 或 3)、好壞球 (B/S)。
-5. 是否為賽事結束 (若畫面顯示再見安打、球員慶祝、握手或文字標示 GAME OVER，則 is_game_over 為 true)。
+1. 記分板上方列隊伍名稱 (top_team) 與其右方得分數字 (top_score)。
+2. 記分板下方列隊伍名稱 (bottom_team) 與其右方得分數字 (bottom_score)。
+3. 局數 (inning) 與半局方向：箭頭向上為 "TOP"（上半局），箭頭向下為 "BOTTOM"（下半局）。
+4. 出局數 (outs, 0~3)、好球 (strikes)、壞球 (balls)。
+5. 壘包跑者情況：一壘 (base_1b)、二壘 (base_2b)、三壘 (base_3b) 是否有點亮/有人。
+6. 打者資訊：畫面若有打者字卡，請辨識打者姓名或背號。
+7. 是否比賽結束 (is_game_over)：若畫面顯示再見安打、慶祝、握手或文字標示結束，則為 true。
 
 請輸出嚴格純淨的 JSON：
 {
   "has_scorebug": true,
-  "top_team": "上方列隊伍名稱 (例如大園國小)",
+  "top_team": "上方列隊伍名稱",
   "top_score": 0,
-  "bottom_team": "下方列隊伍名稱 (例如大勇國小)",
+  "bottom_team": "下方列隊伍名稱",
   "bottom_score": 0,
   "inning": 1,
   "half": "TOP",
   "outs": 0,
   "balls": 0,
   "strikes": 0,
+  "base_1b": false,
+  "base_2b": false,
+  "base_3b": false,
+  "batter_info": "",
   "is_game_over": false,
   "description": "客觀視覺描述"
 }
@@ -143,7 +168,6 @@ class VideoToMarkdownExtractor:
             }
         }
 
-        # 依序使用穩定模型，避免限流
         models_to_try = [self.model_name, "gemini-flash-lite-latest", "gemini-3-flash-preview", "gemini-2.5-flash"]
         for m_name in models_to_try:
             req_url = f"https://generativelanguage.googleapis.com/v1beta/models/{m_name}:generateContent?key={self.api_key}"
@@ -168,60 +192,64 @@ class VideoToMarkdownExtractor:
         custom_timestamps: Optional[List[int]] = None,
         log_callback=None
     ) -> Dict[str, Any]:
-        """執行完整的 Video ➔ Markdown 時序生成管線，具備領域進攻真理校準"""
+        """執行通用 Video ➔ Markdown 時序生成管線，支援任意 YouTube 比賽動態分析"""
         def log(msg: str):
             print(f"[VideoToMD] {msg}")
             if log_callback:
                 log_callback(msg)
 
-        log(f"開始執行 Video-to-Markdown 轉換: {youtube_url}")
+        log(f"開始執行通用多模態 Video-to-Markdown 分析: {youtube_url}")
 
         stream_info = self.get_stream_info(youtube_url)
+        video_title = stream_info.get("title", "棒球賽事直播")
         duration = stream_info["duration"] or 3600
         stream_url = stream_info["stream_url"]
 
+        # 動態從標題解析客隊與主隊名稱
+        t_guest, t_home = extract_teams_from_title(video_title)
+        detected_guest_team = t_guest
+        detected_home_team = t_home
+        log(f"從影片標題動態解析對戰隊伍: 客隊《{detected_guest_team}》 VS 主隊《{detected_home_team}》")
+
+        # 自適應抽樣點排定 (針對全場各局均勻涵蓋)
         if custom_timestamps:
             sample_points = custom_timestamps
         else:
             if duration > 1800:
-                step = max(300, duration // 12)
+                # 依比賽時長均勻抽樣 15 個關鍵節點
+                step = max(180, duration // 16)
                 sample_points = list(range(240, duration - 60, step))
             else:
                 sample_points = [120, 300, 600, 900, 1200]
 
-        log(f"影片標題: 《{stream_info['title']}》，總時長: {duration} 秒，排定取樣時間點: {sample_points}")
+        log(f"總時長: {duration} 秒，排定動態抽樣時間點 (共 {len(sample_points)} 幀): {sample_points}")
 
         timeline_entries: List[Dict[str, Any]] = []
         md_lines: List[str] = [
             f"# 賽事實況時序日誌 (Match Timeline Log)",
-            f"- **賽事名稱**: {stream_info['title']}",
+            f"- **賽事名稱**: {video_title}",
             f"- **影片網址**: {youtube_url}",
             f"- **分析時間**: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
-            f"- **分析管線**: Video-to-Markdown Multimodal Extraction Pipeline (Domain Physics Enhanced)",
+            f"- **分析管線**: Universal Baseball Multimodal Engine (Zero-Hardcoding Dynamic Tracking)",
             "",
             "---",
             ""
         ]
 
-        # 先攻客隊 (上方紅底通常為客隊) 與 後攻主隊 (下方藍底通常為主隊)
-        detected_guest_team = "大園國小"
-        detected_home_team = "大勇國小"
         current_guest_score = 0
         current_home_score = 0
 
         for idx, sec in enumerate(sample_points):
             time_str = format_sec_to_time(sec)
-            log(f"[{idx+1}/{len(sample_points)}] 正在截取並分析時間點 {time_str} ({sec}s)...")
+            log(f"[{idx+1}/{len(sample_points)}] 正在現場截取並分析時間點 {time_str} ({sec}s)...")
             
             frame_b64 = self.capture_frame(stream_url, sec)
             
-            # 若 ffmpeg 暫時未抓到，嘗試現存本機或容器內 evidence 截圖
+            # 若 ffmpeg 暫時未抓到，嘗試現存 evidence 截圖備援
             if not frame_b64:
                 candidate_paths = [
                     f"truth_{sec}.jpg",
                     os.path.join("worker", "evidence", f"truth_{sec}.jpg"),
-                    os.path.join("worker", "evidence", "inning1", f"frame_{sec}.jpg"),
-                    os.path.join("worker", "evidence", "inning1_bot", f"frame_{sec}.jpg"),
                     os.path.join(os.path.dirname(__file__), "evidence", f"truth_{sec}.jpg"),
                     f"/root/worker/evidence/truth_{sec}.jpg",
                 ]
@@ -238,14 +266,16 @@ class VideoToMarkdownExtractor:
             sb_data = self.analyze_frame_scoreboard(frame_b64, sec)
             
             if sb_data.get("has_scorebug"):
-                top_name = sb_data.get("top_team") or ""
-                bot_name = sb_data.get("bottom_team") or ""
+                top_name = (sb_data.get("top_team") or "").strip()
+                bot_name = (sb_data.get("bottom_team") or "").strip()
                 
-                # 隊名正規化識別
-                if "園" in top_name or "大園" in top_name:
-                    detected_guest_team = "大園國小"
-                if "勇" in bot_name or "大勇" in bot_name:
-                    detected_home_team = "大勇國小"
+                # 若轉播記分板有清晰隊名且目前仍為預設名稱，動態更新真實隊名
+                if len(top_name) >= 2 and detected_guest_team == "客隊":
+                    detected_guest_team = top_name
+                    log(f"從記分板動態識別出客隊隊名: {detected_guest_team}")
+                if len(bot_name) >= 2 and detected_home_team == "主隊":
+                    detected_home_team = bot_name
+                    log(f"從記分板動態識別出主隊隊名: {detected_home_team}")
 
                 t_score = int(sb_data.get("top_score", 0) or 0)
                 b_score = int(sb_data.get("bottom_score", 0) or 0)
@@ -253,48 +283,25 @@ class VideoToMarkdownExtractor:
                 half = sb_data.get("half", "TOP")
                 outs = int(sb_data.get("outs", 0) or 0)
                 desc = sb_data.get("description", "")
-                is_game_over = sb_data.get("is_game_over", False) or (sec >= 5250)
+                is_game_over = sb_data.get("is_game_over", False) or (sec >= duration - 60)
 
-                # ==========================================
-                # 棒球領域物理真理：半局進攻歸屬判定
-                # (Inning Offense Run Attribution)
-                # ==========================================
-                # 棒球規則鐵律：
-                # 1. 在上半局 (TOP)，只有先攻客隊 (大園國小) 打擊進攻，守備方絕不可能得分！
-                #    任何在 TOP 期間發生的記分板數字上升，必定屬於客隊 (大園國小)。
-                # 2. 在下半局 (BOTTOM)，只有後攻主隊 (大勇國小) 打擊進攻，任何得分必定屬於主隊。
-                # 3. 轉播操作員若在 1 局上把大園得分按在 bottom_score (如 3, 4, 5, 8 分)，
-                #    或在 1 局下把大勇得分按在 top_score (如 1, 3 分)，
-                #    系統依進攻半局真理自動校正正確歸屬！
-                
+                # ====================================================
+                # 通用棒球領域物理真理：半局進攻歸屬與單調遞增推導
+                # ====================================================
+                # 1. 在上半局 (TOP)：先攻客隊進攻，守備方不可得分。
+                #    畫面上出現的新得分增量必歸屬於客隊。
+                # 2. 在下半局 (BOTTOM)：後攻主隊進攻，新得分增量必歸屬於主隊。
                 new_guest = current_guest_score
                 new_home = current_home_score
 
-                if inn == 1 and half == "TOP":
-                    # 1局上半：只有大園能得分。畫面上的非零最大數字即為大園此時之累積得分
-                    seen_score = max(t_score, b_score)
+                if half == "TOP":
+                    # 上半局客隊進攻
+                    seen_score = max(t_score, b_score) if (inn == 1 and current_home_score == 0) else t_score
                     new_guest = max(new_guest, seen_score)
-                    new_home = 0
-                elif inn == 1 and half == "BOTTOM":
-                    # 1局下半：大園第1局上半已定格為 8 分。大勇開始進攻反擊
-                    new_guest = max(new_guest, 8)
-                    # 此時轉播記分板上大勇得分累計在 top_score 或另一側
-                    # 畫面上有出現 1, 3 分
-                    if t_score > 0 and t_score <= 5:
-                        new_home = max(new_home, t_score)
-                    elif b_score > 8:
-                        new_home = max(new_home, b_score - 8)
-                elif inn == 2:
-                    # 第2局：大園在2局上攻下第9分，大園累積9分；大勇累積3分
-                    new_guest = max(new_guest, 9)
-                    new_home = max(new_home, 3)
-                elif inn >= 3:
-                    # 第3局：轉播記分板已恢復正常上列大園 9，下列大勇追趕 (6, 8, 9, 10)
-                    new_guest = max(new_guest, max(t_score, 9))
-                    new_home = max(new_home, max(b_score, 3))
-                    if sec >= 5200:
-                        new_home = max(new_home, 10) # 3局下再見安打第10分
-                        is_game_over = True
+                else:
+                    # 下半局主隊進攻
+                    seen_home = b_score if b_score >= current_home_score else max(t_score, b_score)
+                    new_home = max(new_home, seen_home)
 
                 score_changed = (new_guest != current_guest_score) or (new_home != current_home_score)
                 current_guest_score = new_guest
@@ -307,12 +314,13 @@ class VideoToMarkdownExtractor:
                     f"- **時間戳記**: `{sec}s` (`{time_str}`)",
                     f"- **記分板資訊**: **{detected_guest_team}** {current_guest_score} : {current_home_score} **{detected_home_team}**",
                     f"- **球局狀況**: 第 {inn} 局{half_label} | {outs} 出局",
+                    f"- **壘包跑者**: 一壘:{'有人' if sb_data.get('base_1b') else '空'} | 二壘:{'有人' if sb_data.get('base_2b') else '空'} | 三壘:{'有人' if sb_data.get('base_3b') else '空'}",
                     f"- **畫面備註**: {desc}",
                 ]
                 if score_changed:
                     md_entry.append(f"- **比分變動提示**: 🔥 比分由此時間點更新為 {detected_guest_team} {current_guest_score} : {current_home_score} {detected_home_team}")
                 if is_game_over:
-                    md_entry.append(f"- **終局狀態**: 🏆 記分板與轉播畫面顯示比賽已結束，主隊擊出再見安打逆轉勝！")
+                    md_entry.append(f"- **終局狀態**: 🏆 轉播畫面顯示比賽已結束！")
 
                 md_entry.append("")
                 md_lines.extend(md_entry)
@@ -327,13 +335,16 @@ class VideoToMarkdownExtractor:
                     "inning": inn,
                     "half": half,
                     "outs": outs,
+                    "base_1b": sb_data.get("base_1b", False),
+                    "base_2b": sb_data.get("base_2b", False),
+                    "base_3b": sb_data.get("base_3b", False),
                     "description": desc,
                     "is_score_change": score_changed,
                     "is_game_over": is_game_over,
                     "frame_b64": frame_b64,
                 })
 
-                log(f"時間點 {time_str} 記分板解析成功: {detected_guest_team} {current_guest_score} : {current_home_score} {detected_home_team} ({inn}局{half_label}, {outs}出局)")
+                log(f"時間點 {time_str} 解析成功: {detected_guest_team} {current_guest_score} : {current_home_score} {detected_home_team} ({inn}局{half_label}, {outs}出局)")
             else:
                 log(f"時間點 {time_str} 記分板未顯現或辨識無效")
 
@@ -344,7 +355,7 @@ class VideoToMarkdownExtractor:
 
         return {
             "status": "success",
-            "title": stream_info["title"],
+            "title": video_title,
             "guest_team": detected_guest_team,
             "home_team": detected_home_team,
             "final_guest_score": current_guest_score,

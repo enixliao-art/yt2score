@@ -179,37 +179,45 @@ export const BoxScoreTable: React.FC<BoxScoreTableProps> = ({
                 <th className="py-2.5 px-2.5 font-semibold text-amber-400">R</th>
                 <th className="py-2.5 px-2.5 font-semibold text-emerald-400">H</th>
                 <th className="py-2.5 px-2.5 font-semibold text-indigo-400">RBI</th>
+                <th className="py-2.5 px-2.5 font-semibold text-cyan-400">SB</th>
                 <th className="py-2.5 px-2.5 font-semibold">BB</th>
                 <th className="py-2.5 px-2.5 font-semibold">SO</th>
                 <th className="py-2.5 px-3 text-slate-300 font-semibold">AVG</th>
               </tr>
             </thead>
             <tbody>
-              {(activeTab === "GUEST" ? guestBoxScore : homeBoxScore).map((b, idx) => (
-                <tr
-                  key={idx}
-                  className="border-b border-slate-800/50 hover:bg-slate-800/30 transition-colors"
-                >
-                  <td className="py-2 px-2 text-slate-400">{b.order}</td>
-                  <td className="py-2 px-2 font-bold text-slate-300">{b.number}</td>
-                  <td className="py-2 px-3 text-left font-sans font-medium text-slate-200">
-                    {b.name}
-                  </td>
-                  <td className="py-2 px-2">
-                    <span className="bg-slate-800 text-slate-300 px-1.5 py-0.5 rounded text-[11px] border border-slate-700">
-                      {b.pos}
-                    </span>
-                  </td>
-                  <td className="py-2 px-2.5 text-slate-300">{b.pa}</td>
-                  <td className="py-2 px-2.5 text-slate-300">{b.ab}</td>
-                  <td className="py-2 px-2.5 font-bold text-amber-400">{b.r}</td>
-                  <td className="py-2 px-2.5 font-bold text-emerald-400">{b.h}</td>
-                  <td className="py-2 px-2.5 font-bold text-indigo-400">{b.rbi}</td>
-                  <td className="py-2 px-2.5 text-slate-300">{b.bb}</td>
-                  <td className="py-2 px-2.5 text-slate-400">{b.so}</td>
-                  <td className="py-2 px-3 text-slate-300">{b.avg || ".000"}</td>
-                </tr>
-              ))}
+              {(activeTab === "GUEST" ? guestBoxScore : homeBoxScore).map((b: any, idx) => {
+                const pName = b.player_name || b.name || `第 ${b.order} 棒`;
+                const pNum = b.jersey_num || b.number || String(b.order);
+                const pPos = b.position || b.pos || "DH";
+                const pAvg = b.ab > 0 ? (b.h / b.ab).toFixed(3).replace(/^0/, "") : ".000";
+                return (
+                  <tr
+                    key={idx}
+                    className="border-b border-slate-800/50 hover:bg-slate-800/30 transition-colors"
+                  >
+                    <td className="py-2 px-2 text-slate-400">{b.order}</td>
+                    <td className="py-2 px-2 font-bold text-slate-300">{pNum}</td>
+                    <td className="py-2 px-3 text-left font-sans font-medium text-slate-200">
+                      {pName}
+                    </td>
+                    <td className="py-2 px-2">
+                      <span className="bg-slate-800 text-slate-300 px-1.5 py-0.5 rounded text-[11px] border border-slate-700">
+                        {pPos}
+                      </span>
+                    </td>
+                    <td className="py-2 px-2.5 text-slate-300">{b.pa ?? 0}</td>
+                    <td className="py-2 px-2.5 text-slate-300">{b.ab ?? 0}</td>
+                    <td className="py-2 px-2.5 font-bold text-amber-400">{b.r ?? 0}</td>
+                    <td className="py-2 px-2.5 font-bold text-emerald-400">{b.h ?? 0}</td>
+                    <td className="py-2 px-2.5 font-bold text-indigo-400">{b.rbi ?? 0}</td>
+                    <td className="py-2 px-2.5 font-bold text-cyan-400">{b.sb ?? 0}</td>
+                    <td className="py-2 px-2.5 text-slate-300">{b.bb ?? 0}</td>
+                    <td className="py-2 px-2.5 text-slate-400">{b.so ?? 0}</td>
+                    <td className="py-2 px-3 text-slate-300">{b.avg || pAvg}</td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>

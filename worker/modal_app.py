@@ -95,7 +95,7 @@ def analyze_single_inning(req: SingleInningRequest):
     except Exception as e:
         return {"status": "error", "message": f"單局分析異常: {str(e)}"}
 
-@app.function(image=image, secrets=[modal.Secret.from_name("gemini-secret")])
+@app.function(image=image, secrets=[modal.Secret.from_name("gemini-secret")], timeout=300)
 @modal.asgi_app()
 def fastapi_app():
     return web_app

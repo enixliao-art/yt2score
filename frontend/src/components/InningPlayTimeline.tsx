@@ -43,6 +43,9 @@ export interface PlayEvent {
   order_label?: string;
   result?: string;
   rbi?: number;
+  is_out?: boolean;
+  is_stolen_base?: boolean;
+  scorers?: string[];
   batter_pos?: string;
   batter_num?: string;
   flag?: string;
@@ -592,16 +595,41 @@ export const InningPlayTimeline: React.FC<InningPlayTimelineProps> = ({
                         </span>
                       </div>
 
-                      {/* 右側：標籤與操作按鈕 */}
-                      <div className="flex items-center gap-2 shrink-0">
-                        {ev.runs_scored > 0 && (
-                          <span className="text-xs font-bold text-emerald-400 bg-emerald-950/60 px-2 py-0.5 rounded border border-emerald-800">
-                            +{ev.runs_scored} 分
+                      {/* 右側：打席結果標籤（出局與否、打點、跑回本壘得分、盜壘）與操作按鈕 */}
+                      <div className="flex items-center gap-1.5 flex-wrap shrink-0 justify-end">
+                        {/* 出局與否 */}
+                        {ev.is_out !== undefined && (
+                          <span
+                            className={`text-[11px] font-bold px-2 py-0.5 rounded border ${
+                              ev.is_out
+                                ? "text-rose-400 bg-rose-950/60 border-rose-800"
+                                : "text-emerald-400 bg-emerald-950/60 border-emerald-800"
+                            }`}
+                          >
+                            {ev.is_out ? `✕ 出局 (${ev.outs_recorded || 1}出局)` : "✓ 上壘/安全"}
                           </span>
                         )}
-                        {ev.outs_recorded > 0 && (
-                          <span className="text-xs font-bold text-rose-400 bg-rose-950/60 px-2 py-0.5 rounded border border-rose-800">
-                            +{ev.outs_recorded} 出局
+
+                        {/* 打點 RBI */}
+                        {(((ev.rbi ?? 0) > 0) || ((ev.runs_scored ?? 0) > 0)) && (
+                          <span className="text-[11px] font-bold text-indigo-300 bg-indigo-950/80 px-2 py-0.5 rounded border border-indigo-700 flex items-center gap-1">
+                            <span>打點:</span>
+                            <span className="font-mono text-white font-black">{ev.rbi || ev.runs_scored}</span>
+                          </span>
+                        )}
+
+                        {/* 跑回本壘得分名單 */}
+                        {ev.scorers && ev.scorers.length > 0 && (
+                          <span className="text-[11px] font-bold text-amber-300 bg-amber-950/80 px-2 py-0.5 rounded border border-amber-700 flex items-center gap-1">
+                            <span>🏃 得分:</span>
+                            <span>{ev.scorers.join(", ")}</span>
+                          </span>
+                        )}
+
+                        {/* 盜壘成功 */}
+                        {ev.is_stolen_base && (
+                          <span className="text-[11px] font-bold text-cyan-300 bg-cyan-950/80 px-2 py-0.5 rounded border border-cyan-700">
+                            ⚡ 盜壘成功
                           </span>
                         )}
 
