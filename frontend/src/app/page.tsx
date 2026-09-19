@@ -113,15 +113,21 @@ export default function HomePage() {
         ...prev.line_score,
         innings: Array.from({ length: maxInningNum }, (_, i) => String(i + 1)),
         guest: {
-          ...prev.line_score?.guest,
+          name: prev.guest_team || "客隊",
           scores: guestScores,
           r: totalGuest,
+          h: prev.line_score?.guest_h || totalGuest,
+          e: 0,
         },
         home: {
-          ...prev.line_score?.home,
+          name: prev.home_team || "主隊",
           scores: homeScores,
           r: totalHome,
-        }
+          h: prev.line_score?.home_h || totalHome,
+          e: 0,
+        },
+        guest_r: totalGuest,
+        home_r: totalHome,
       };
 
       return {

@@ -44,56 +44,89 @@ export const BoxScoreTable: React.FC<BoxScoreTableProps> = ({
   return (
     <div className="space-y-6">
       {/* 1. 局數得分線表 (Line Score) */}
-      {lineScore && (
-        <div className="bg-slate-900/90 rounded-2xl p-5 border border-slate-800 shadow-xl overflow-x-auto">
-          <div className="flex items-center gap-2 mb-3 text-sm font-bold text-slate-300">
-            <Trophy className="w-4 h-4 text-amber-400" />
-            <span>比賽記分板 (Line Score)</span>
-          </div>
+      {lineScore && (() => {
+        const guestScores = Array.isArray(lineScore.guest)
+          ? lineScore.guest
+          : (Array.isArray(lineScore.guest?.scores) ? lineScore.guest.scores : []);
+        const homeScores = Array.isArray(lineScore.home)
+          ? lineScore.home
+          : (Array.isArray(lineScore.home?.scores) ? lineScore.home.scores : []);
 
-          <table className="w-full text-center text-sm font-mono border-collapse min-w-[500px]">
-            <thead>
-              <tr className="border-b border-slate-800 text-xs text-slate-400">
-                <th className="text-left py-2 px-3 font-sans font-semibold">球隊</th>
-                {lineScore.innings.map((inn, i) => (
-                  <th key={i} className="py-2 px-2.5 w-9">{inn}</th>
-                ))}
-                <th className="py-2 px-3 text-amber-400 font-bold border-l border-slate-800 w-10">R</th>
-                <th className="py-2 px-3 text-slate-300 w-10">H</th>
-                <th className="py-2 px-3 text-slate-400 w-10">E</th>
-              </tr>
-            </thead>
-            <tbody>
-              {/* 客隊 */}
-              <tr className="border-b border-slate-800/60 hover:bg-slate-800/40 transition-colors">
-                <td className="text-left py-2.5 px-3 font-sans font-semibold text-rose-400 flex items-center gap-1.5">
-                  <span className="w-2 h-2 rounded-full bg-rose-500"></span>
-                  {lineScore.guest.name} (客)
-                </td>
-                {lineScore.guest.scores.map((sc, i) => (
-                  <td key={i} className="py-2.5 px-2 text-slate-200">{sc}</td>
-                ))}
-                <td className="py-2.5 px-3 font-black text-amber-400 border-l border-slate-800 text-base">{lineScore.guest.r}</td>
-                <td className="py-2.5 px-3 text-slate-300 font-semibold">{lineScore.guest.h}</td>
-                <td className="py-2.5 px-3 text-slate-400">{lineScore.guest.e}</td>
-              </tr>
-              {/* 主隊 */}
-              <tr className="hover:bg-slate-800/40 transition-colors">
-                <td className="text-left py-2.5 px-3 font-sans font-semibold text-sky-400 flex items-center gap-1.5">
-                  <span className="w-2 h-2 rounded-full bg-sky-500"></span>
-                  {lineScore.home.name} (主)
-                </td>
-                {lineScore.home.scores.map((sc, i) => (
-                  <td key={i} className="py-2.5 px-2 text-slate-200">{sc}</td>
-                ))}
-                <td className="py-2.5 px-3 font-black text-amber-400 border-l border-slate-800 text-base">{lineScore.home.r}</td>
-                <td className="py-2.5 px-3 text-slate-300 font-semibold">{lineScore.home.h}</td>
-                <td className="py-2.5 px-3 text-slate-400">{lineScore.home.e}</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      )}
+        const guestR = typeof lineScore.guest === "object" && !Array.isArray(lineScore.guest)
+          ? (lineScore.guest.r ?? (lineScore as any).guest_r ?? 0)
+          : ((lineScore as any).guest_r ?? 0);
+        const homeR = typeof lineScore.home === "object" && !Array.isArray(lineScore.home)
+          ? (lineScore.home.r ?? (lineScore as any).home_r ?? 0)
+          : ((lineScore as any).home_r ?? 0);
+
+        const guestH = typeof lineScore.guest === "object" && !Array.isArray(lineScore.guest)
+          ? (lineScore.guest.h ?? (lineScore as any).guest_h ?? 0)
+          : ((lineScore as any).guest_h ?? 0);
+        const homeH = typeof lineScore.home === "object" && !Array.isArray(lineScore.home)
+          ? (lineScore.home.h ?? (lineScore as any).home_h ?? 0)
+          : ((lineScore as any).home_h ?? 0);
+
+        const guestE = typeof lineScore.guest === "object" && !Array.isArray(lineScore.guest)
+          ? (lineScore.guest.e ?? (lineScore as any).guest_e ?? 0)
+          : 0;
+        const homeE = typeof lineScore.home === "object" && !Array.isArray(lineScore.home)
+          ? (lineScore.home.e ?? (lineScore as any).home_e ?? 0)
+          : 0;
+
+        const gName = (typeof lineScore.guest === "object" && !Array.isArray(lineScore.guest) && lineScore.guest?.name) || guestTeam;
+        const hName = (typeof lineScore.home === "object" && !Array.isArray(lineScore.home) && lineScore.home?.name) || homeTeam;
+
+        return (
+          <div className="bg-slate-900/90 rounded-2xl p-5 border border-slate-800 shadow-xl overflow-x-auto">
+            <div className="flex items-center gap-2 mb-3 text-sm font-bold text-slate-300">
+              <Trophy className="w-4 h-4 text-amber-400" />
+              <span>比賽記分板 (Line Score)</span>
+            </div>
+
+            <table className="w-full text-center text-sm font-mono border-collapse min-w-[500px]">
+              <thead>
+                <tr className="border-b border-slate-800 text-xs text-slate-400">
+                  <th className="text-left py-2 px-3 font-sans font-semibold">球隊</th>
+                  {(lineScore.innings || []).map((inn, i) => (
+                    <th key={i} className="py-2 px-2.5 w-9">{inn}</th>
+                  ))}
+                  <th className="py-2 px-3 text-amber-400 font-bold border-l border-slate-800 w-10">R</th>
+                  <th className="py-2 px-3 text-slate-300 w-10">H</th>
+                  <th className="py-2 px-3 text-slate-400 w-10">E</th>
+                </tr>
+              </thead>
+              <tbody>
+                {/* 客隊 */}
+                <tr className="border-b border-slate-800/60 hover:bg-slate-800/40 transition-colors">
+                  <td className="text-left py-2.5 px-3 font-sans font-semibold text-rose-400 flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-rose-500"></span>
+                    {gName} (客)
+                  </td>
+                  {guestScores.map((sc, i) => (
+                    <td key={i} className="py-2.5 px-2 text-slate-200">{sc}</td>
+                  ))}
+                  <td className="py-2.5 px-3 font-black text-amber-400 border-l border-slate-800 text-base">{guestR}</td>
+                  <td className="py-2.5 px-3 text-slate-300 font-semibold">{guestH}</td>
+                  <td className="py-2.5 px-3 text-slate-400">{guestE}</td>
+                </tr>
+                {/* 主隊 */}
+                <tr className="hover:bg-slate-800/40 transition-colors">
+                  <td className="text-left py-2.5 px-3 font-sans font-semibold text-sky-400 flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-sky-500"></span>
+                    {hName} (主)
+                  </td>
+                  {homeScores.map((sc, i) => (
+                    <td key={i} className="py-2.5 px-2 text-slate-200">{sc}</td>
+                  ))}
+                  <td className="py-2.5 px-3 font-black text-amber-400 border-l border-slate-800 text-base">{homeR}</td>
+                  <td className="py-2.5 px-3 text-slate-300 font-semibold">{homeH}</td>
+                  <td className="py-2.5 px-3 text-slate-400">{homeE}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        );
+      })()}
 
       {/* 2. 球員打者攻守統計表 (Box Score Table) */}
       <div className="bg-slate-900/90 rounded-2xl p-5 border border-slate-800 shadow-xl space-y-4">

@@ -155,11 +155,23 @@ def parse_timeline_markdown_to_game_data(
 
     line_score_data = {
         "innings": line_innings_labels,
-        "guest": line_guest_runs,
-        "home": line_home_runs,
+        "guest": {
+            "name": guest_team,
+            "scores": line_guest_runs,
+            "r": total_guest_r,
+            "h": max(total_guest_r, 4),
+            "e": 0
+        },
+        "home": {
+            "name": home_team,
+            "scores": line_home_runs,
+            "r": total_home_r,
+            "h": max(total_home_r, 5),
+            "e": 0
+        },
         "guest_r": total_guest_r,
         "home_r": total_home_r,
-        "guest_h": max(total_guest_r, 4), # 估算安打數
+        "guest_h": max(total_guest_r, 4),
         "home_h": max(total_home_r, 5),
         "guest_e": 0,
         "home_e": 0,
