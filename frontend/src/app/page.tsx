@@ -1,10 +1,11 @@
 "use client";
 
 import React, { useState } from "react";
-import { Play, Sparkles, Loader2, Layers, CheckCircle2, Table, ListOrdered, Cpu, Terminal, Clock, CheckCheck } from "lucide-react";
+import { Play, Sparkles, Loader2, Layers, CheckCircle2, Table, ListOrdered, Cpu, Terminal, Clock, CheckCheck, FileText } from "lucide-react";
 import { VideoSyncPlayer } from "@/components/VideoSyncPlayer";
 import { InningPlayTimeline } from "@/components/InningPlayTimeline";
 import { BoxScoreTable } from "@/components/BoxScoreTable";
+import { MarkdownTimelineViewer } from "@/components/MarkdownTimelineViewer";
 
 const MODAL_API_URL = "https://enixliao-art--yt2score-service-fastapi-app.modal.run/api/analyze";
 
@@ -15,7 +16,7 @@ export default function HomePage() {
   const [liveLogs, setLiveLogs] = useState<string[]>([]);
   const [analyzedData, setAnalyzedData] = useState<any>(null);
   const [selectedTimestamp, setSelectedTimestamp] = useState<number | null>(null);
-  const [activeView, setActiveView] = useState<"SCORECARD" | "BOXSCORE">("SCORECARD");
+  const [activeView, setActiveView] = useState<"SCORECARD" | "BOXSCORE" | "MARKDOWN">("SCORECARD");
   const [showTerminal, setShowTerminal] = useState<boolean>(true);
   const [notification, setNotification] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
@@ -220,6 +221,20 @@ export default function HomePage() {
     URL.revokeObjectURL(url);
   };
 
+  const handleExportMarkdown = () => {
+    if (!analyzedData?.markdown_content) {
+      showToast("尚未產生 Markdown 賽事日誌內容", "error");
+      return;
+    }
+    const blob = new Blob([analyzedData.markdown_content], { type: "text/markdown;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `match_timeline_${Date.now()}.md`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col justify-between">
       {/* 頂部 Header */}
@@ -378,6 +393,14 @@ export default function HomePage() {
                   <div className="flex items-center gap-2">
                     <button
                       type="button"
+                      onClick={handleExportMarkdown}
+                      className="text-xs bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-300 border border-indigo-500/40 px-3 py-1.5 rounded-lg transition-colors cursor-pointer flex items-center gap-1"
+                    >
+                      <FileText className="w-3.5 h-3.5" />
+                      <span>匯出 MD</span>
+                    </button>
+                    <button
+                      type="button"
                       onClick={handleExportJSON}
                       className="text-xs bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 px-3 py-1.5 rounded-lg transition-colors cursor-pointer"
                     >
@@ -389,31 +412,43 @@ export default function HomePage() {
                   </div>
                 </div>
 
-                {/* 視圖切換器：逐棒打席實質分析 (Scorecard) vs 攻守記錄表 (Box Score) */}
+                {/* 視圖切換器：逐棒打席 (Scorecard) vs 攻守記錄表 (Box Score) vs Markdown 時序日誌 */}
                 <div className="flex items-center gap-2 bg-slate-900/90 p-1.5 rounded-2xl border border-slate-800">
                   <button
                     type="button"
                     onClick={() => setActiveView("SCORECARD")}
-                    className={`flex-1 py-2.5 px-4 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer ${
+                    className={`flex-1 py-2.5 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
                       activeView === "SCORECARD"
                         ? "bg-indigo-600 text-white shadow-lg shadow-indigo-600/30"
                         : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/60"
                     }`}
                   >
-                    <ListOrdered className="w-4 h-4" />
-                    ⚾ 全場逐棒打席實質分析 (Scorecard)
+                    <ListOrdered className="w-3.5 h-3.5" />
+                    <span>⚾ 逐棒打席 (Scorecard)</span>
                   </button>
                   <button
                     type="button"
                     onClick={() => setActiveView("BOXSCORE")}
-                    className={`flex-1 py-2.5 px-4 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer ${
+                    className={`flex-1 py-2.5 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
                       activeView === "BOXSCORE"
                         ? "bg-indigo-600 text-white shadow-lg shadow-indigo-600/30"
                         : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/60"
                     }`}
                   >
-                    <Table className="w-4 h-4" />
-                    📋 全場攻守記錄表 (Box Score)
+                    <Table className="w-3.5 h-3.5" />
+                    <span>📋 攻守表記錄 (Box Score)</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setActiveView("MARKDOWN")}
+                    className={`flex-1 py-2.5 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                      activeView === "MARKDOWN"
+                        ? "bg-indigo-600 text-white shadow-lg shadow-indigo-600/30"
+                        : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/60"
+                    }`}
+                  >
+                    <FileText className="w-3.5 h-3.5" />
+                    <span>📝 賽事實況日誌 (Markdown)</span>
                   </button>
                 </div>
 
@@ -426,7 +461,7 @@ export default function HomePage() {
                     onReanalyzeInning={handleReanalyzeInning}
                     onAnalyzeNextInning={handleAnalyzeNextInning}
                   />
-                ) : (
+                ) : activeView === "BOXSCORE" ? (
                   /* 全場攻守記錄表 */
                   <BoxScoreTable
                     guestTeam={analyzedData.guest_team}
@@ -434,6 +469,13 @@ export default function HomePage() {
                     guestBoxScore={analyzedData.guest_box_score}
                     homeBoxScore={analyzedData.home_box_score}
                     lineScore={analyzedData.line_score}
+                  />
+                ) : (
+                  /* 賽事實況 Markdown 時序日誌 */
+                  <MarkdownTimelineViewer
+                    markdownContent={analyzedData.markdown_content || ""}
+                    timelineEntries={analyzedData.timeline_entries || []}
+                    onSelectTimestamp={(sec) => setSelectedTimestamp(sec)}
                   />
                 )}
               </div>

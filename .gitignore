@@ -1,4 +1,4 @@
-﻿# Python
+# Python
 __pycache__/
 *.py[cod]
 *$py.class
@@ -8,6 +8,7 @@ __pycache__/
 venv/
 ENV/
 env/
+/*.py
 
 # Node / Next.js
 node_modules/
@@ -25,3 +26,14 @@ yarn-error.log*
 # OS
 .DS_Store
 Thumbs.db
+
+# Media & Temp Frames
+*.jpg
+*.png
+*.webm
+*.mp4
+temp_*
+*.txt
+*.json
+!package.json
+!tsconfig.json
