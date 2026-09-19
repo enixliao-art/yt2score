@@ -101,9 +101,15 @@ class VideoToMarkdownExtractor:
 
         url = f"https://generativelanguage.googleapis.com/v1beta/models/{self.model_name}:generateContent?key={self.api_key}"
         
-        prompt = """你是精密的棒球轉播視覺分析系統。請仔細觀察這張轉播截圖（尤其是左上角、右上角或下方的記分板 Scorebug）：
-請務必精確辨識，絕不憑空捏造。若某項資訊在畫面中看不到，請填 null 或 0。
-請輸出嚴格且純淨的 JSON（不要任何 markdown 標記）：
+        prompt = """你是精密的棒球轉播視覺分析系統。請仔細觀察這張轉播截圖中的記分板 (Scorebug)：
+【重要規則】：
+1. 記分板通常有兩列：
+   - 上方列（紅底）：為客隊 (guest_team)，其右側的數字為客隊得分 (guest_score)。
+   - 下方列（藍底）：為主隊 (home_team)，其右側的數字為主隊得分 (home_score)。
+   請務必仔細核對，絕不要把上方與下方的分數寫反！
+   例如：若上方隊伍是大園國小、旁邊是 3；下方是大勇國小、旁邊是 0，則 guest_score=3, home_score=0。
+2. 局數 (inning)：請看右側數字與箭頭。箭頭朝上為 "TOP"，朝下為 "BOTTOM"。
+3. 請輸出嚴格純淨的 JSON：
 {
   "has_scorebug": true,
   "guest_team": "客隊隊名 (如上方紅底)",
@@ -115,11 +121,9 @@ class VideoToMarkdownExtractor:
   "outs": 0,
   "balls": 0,
   "strikes": 0,
-  "bases": {"first": false, "second": false, "third": false},
   "is_game_over": false,
-  "description": "當前畫面的簡短事實描述 (如：大園進攻，無人出局一壘有人)"
+  "description": "客觀事實描述"
 }
-注意：half 只能填 "TOP"（上半局、箭頭朝上）或 "BOTTOM"（下半局、箭頭朝下）。若出局數看不到填 0。
 """
         payload = {
             "contents": [{
@@ -140,10 +144,12 @@ class VideoToMarkdownExtractor:
             }
         }
 
-        # 支援重試機制
-        for attempt in range(2):
+        # 支援多模型與 429 備援機制
+        models_to_try = [self.model_name, "gemini-2.5-flash-lite", "gemini-flash-latest"]
+        for m_name in models_to_try:
+            req_url = f"https://generativelanguage.googleapis.com/v1beta/models/{m_name}:generateContent?key={self.api_key}"
             try:
-                resp = requests.post(url, json=payload, timeout=10)
+                resp = requests.post(req_url, json=payload, timeout=12)
                 if resp.status_code == 200:
                     text = resp.json()["candidates"][0]["content"]["parts"][0]["text"].strip()
                     clean = re.sub(r"^```json\s*", "", text)
@@ -151,9 +157,11 @@ class VideoToMarkdownExtractor:
                     data = json.loads(clean)
                     return data
                 elif resp.status_code == 429:
-                    time.sleep(2.0)
+                    time.sleep(1.5)
             except Exception as e:
                 time.sleep(1.0)
+
+        return {"has_scorebug": False, "raw_error": "API failed or rate limit"}
 
         return {"has_scorebug": False, "raw_error": "API failed or rate limit"}
 

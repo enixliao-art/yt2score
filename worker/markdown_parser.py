@@ -85,20 +85,27 @@ def parse_timeline_markdown_to_game_data(
 
         # 組裝此半局的事件與打席清單
         half_events: List[Dict[str, Any]] = []
+        running_score = start_guest if inn_half == "TOP" else start_home
+
         for idx, e in enumerate(entries):
             sec = e["timestamp_sec"]
             t_str = e["timestamp_str"]
-            is_score = e.get("is_score_change", False)
             desc = e.get("description", "")
             outs = e.get("outs", 0)
+
+            cur_team_score = e["guest_score"] if inn_half == "TOP" else e["home_score"]
+            event_runs = max(0, cur_team_score - running_score)
+            is_score = event_runs > 0 or e.get("is_score_change", False)
+            if event_runs > 0:
+                running_score = cur_team_score
 
             event_type = "SCORE" if is_score else ("OUT" if outs > 0 else "PLAY")
             
             # 結果標籤
             if e.get("is_game_over"):
                 res_title = "再見安打結束比賽 🏆"
-            elif is_score:
-                res_title = f"適時安打得 {diff_runs} 分 🔥"
+            elif event_runs > 0:
+                res_title = f"適時安打得 {event_runs} 分 🔥"
             elif outs == 3:
                 res_title = "三出局攻守交換"
             else:
@@ -114,12 +121,12 @@ def parse_timeline_markdown_to_game_data(
                 "event_type": event_type,
                 "result": res_title,
                 "description": f"【{t_str}】記分板 {guest_team} {e['guest_score']} : {e['home_score']} {home_team} ({inn_num}局{'上' if inn_half=='TOP' else '下'}, {outs}出局)。{desc}",
-                "runs_scored": diff_runs if is_score else 0,
+                "runs_scored": event_runs,
                 "outs_recorded": outs,
                 "batter_name": f"{guest_team if inn_half=='TOP' else home_team} 打者",
                 "batter_pos": "DH",
                 "batter_num": "—",
-                "rbi": diff_runs if is_score else 0,
+                "rbi": event_runs,
                 "evidence": {
                     "timestamp_sec": float(sec),
                     "timestamp_str": t_str,
